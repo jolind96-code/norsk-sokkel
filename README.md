@@ -63,6 +63,8 @@ ikke synes i koden.
 | Europeisk gasspris | Verdensbanken Pink Sheet | — |
 | USD/NOK | Norges Bank | — |
 | Folketall | SSB tabell 04859 | NLOD |
+| Vannkraft/vindkraft (kraftanlegg, MW/GWh) | NVE api.nve.no + GeoNorge WFS | NLOD |
+| Nasjonale årstotaler per energiform (vann/vind/sol/varme) | SSB tabell 08307 | NLOD |
 | Kartgrunnlag | OpenStreetMap via OpenFreeMap | ODbL / MIT |
 
 NLOD krever kildehenvisning **og** at det opplyses at data er bearbeidet.

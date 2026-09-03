@@ -23,11 +23,12 @@ jobs:
           python build_data.py
           python build_prices.py
           python build_partners.py
+          python build_energiformer.py
           python build_single.py
       - name: Commit og push hvis noe endret seg
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json prices.json partners.json norsk-sokkel.html
+          git add data.json prices.json partners.json energiformer.json norsk-sokkel.html
           git diff --cached --quiet || git commit -m "Automatisk dataoppdatering $(date -u +%Y-%m-%d)"
           git push

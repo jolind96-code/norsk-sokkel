@@ -10,7 +10,7 @@ import re
 SRC = "index.html"
 OUT = "norsk-sokkel.html"
 EMBED = ["data.json", "cities.json", "ncs.geojson", "prices.json", "facilities.json",
-         "partners.json", "power.json", "omrader.geojson"]
+         "partners.json", "power.json", "omrader.geojson", "energiformer.json"]
 VENDOR = ["vendor/maplibre-gl.css", "vendor/maplibre-gl.js", "vendor/echarts.min.js"]
 
 html = open(SRC, encoding="utf-8").read()
@@ -64,6 +64,8 @@ repl = {
         "OMR=__OMRADER_GEOJSON__;",
     "data:'ncs.geojson'":
         "data:__NCS_GEOJSON__",
+    "fetch('energiformer.json').then(r=>r.json())":
+        "Promise.resolve(__ENERGIFORMER_JSON__)",
 }
 misses = [k for k in repl if k not in html]
 if misses:

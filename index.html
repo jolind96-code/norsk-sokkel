@@ -447,6 +447,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       <div class="scope" id="kpiscope"></div>
       <div class="kpis" id="kpis" aria-live="polite"></div>
       <div class="note" id="kpinote"></div>
+      <div class="note" id="kpinat" style="display:none"></div>
 
       <div id="tick">
         <div class="tk-head"><span class="live"><i></i>Direkte</span>
@@ -675,6 +676,9 @@ fetch('data.json').then(r=>r.json()).then(d=>{
        Selve kartlaget legges forst til nar brukeren slar det pa. */
     fetch('power.json').then(r=>r.json()).then(pw=>{ POW=pw; return loadSpot(); })
       .then(()=>drawCompare()).catch(()=>{});
+    /* Nasjonale energiform-totaler (SSB, arlig) - kun til KPI-kortet i
+       Land-modulen, lastes uavhengig av om Land-modulen apnes. */
+    fetch('energiformer.json').then(r=>r.json()).then(e=>{ ENGF=e; }).catch(()=>{});
   }).catch(()=>{ document.getElementById('tick').style.display='none'; });
 });
 
@@ -1211,6 +1215,7 @@ function drawListLand(){
 /* ---------- KPI ---------- */
 function drawKpis(){
   if(HL==='land'){ drawKpisLand(); return; }
+  document.getElementById('kpinat').style.display='none';
   const i=year-YMIN;
   const sel=selected?D.fields.find(f=>f.id===selected):null;
   const scope=sel?[sel]:filtered;                 // valgt felt overstyrer utvalget
@@ -1265,6 +1270,25 @@ function drawKpisLand(){
        tørre perioder eller lav etterspørsel, og et vindkraftverk følger vinden — derfor ligger
        begge normalt et sted mellom 25–45 %, ikke nær 100 %.`
     : `Installert effekt og NVEs midlere årsproduksjon (1991–2020) for anleggene i utvalget. Ingen år-for-år-historikk finnes hos NVE per anlegg.`;
+  drawKpiNat();
+}
+
+/* Nasjonal kontekst: solkraft og varmekraft har ingen NVE-API med
+   geolokaliserte enkeltanlegg (kun vann og vind har det - se
+   build_energiformer.py), sa de vises IKKE som punkter pa kartet. I stedet
+   vises SSBs nasjonale arstotaler her, tydelig merket som noe annet enn
+   utvalget over (som alltid er MW/GWh for anleggene i kartet/listen). */
+function drawKpiNat(){
+  const box=document.getElementById('kpinat');
+  if(!ENGF){ box.style.display='none'; return; }
+  const last=ENGF.ar.length-1;
+  const y=ENGF.ar[last];
+  const sol=ENGF.sol[last], varme=ENGF.varme[last], vann=ENGF.vann[last], vind=ENGF.vind[last];
+  box.style.display='';
+  box.innerHTML=`<b>Norge totalt ${y}</b> (SSB, nasjonale årstall - ikke kart-punkter):
+    vannkraft ${fmt(vann,0)}, vindkraft ${fmt(vind,0)}, solkraft ${fmt(sol,0)},
+    varmekraft ${fmt(varme,0)} GWh. Solkraft/varmekraft mangler NVE-data per anlegg
+    (mest små, ikke-geolokaliserte takanlegg) og kan derfor ikke vises på kartet.`;
 }
 
 /* ---------- grafer ---------- */
@@ -1995,7 +2019,7 @@ function initHjelp(){
 /* Vannkraft og vindkraft fra NVE (NLOD), koordinater fra GeoNorge WFS og
    NVEs vindkraft-GIS. Spotpris hentes direkte fra hvakosterstrommen.no, som
    bygger pa Nord Pools dagen-for-priser. Prisen er fersk hver gang du apner. */
-let POW=null, powOn=false, SPOT=null;
+let POW=null, powOn=false, SPOT=null, ENGF=null;
 const POWC={vann:'#38bdf8', vind:'#2dd4bf'};
 const OMRN={NO1:'Sørøst',NO2:'Sørvest',NO3:'Midt',NO4:'Nord',NO5:'Vest'};
 const PWR_LAG=['pwr','pwr-md','pwr-sm'];
