@@ -153,6 +153,13 @@ header h1 em{font-style:normal;color:var(--acc)}
 .kpi .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.4px}
 .kpi .u{font-size:9px;color:var(--tx3);margin-top:1px}
 .note{font-size:11px;color:var(--tx3);margin-top:9px;line-height:1.55}
+.nathead{font-size:10px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:12px;margin-bottom:6px}
+.natchips{display:flex;flex-wrap:wrap;gap:6px}
+.natchip{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.natchip .d{width:8px;height:8px;border-radius:50%;flex:none}
+.natchip .l{font-size:11px;color:var(--tx2)}
+.natchip b{font-size:13px;font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.natfoot{font-size:10px;color:var(--tx3);margin-top:6px;line-height:1.5}
 .note b{color:var(--tx2);font-weight:600}
 .scope{font-size:11px;color:var(--acc);background:rgba(79,70,229,.08);
   border-left:2px solid var(--acc);padding:5px 9px;border-radius:0 6px 6px 0;margin-bottom:9px}
@@ -449,7 +456,8 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       <div class="scope" id="kpiscope"></div>
       <div class="kpis" id="kpis" aria-live="polite"></div>
       <div class="note" id="kpinote"></div>
-      <div class="note" id="kpinat" style="display:none"></div>
+      <div class="nathead" id="nathead" style="display:none">Norge totalt, alle energiformer (SSB)</div>
+      <div class="natchips" id="kpinat" style="display:none"></div>
 
       <div id="tick">
         <div class="tk-head"><span class="live"><i></i>Direkte</span>
@@ -1218,6 +1226,7 @@ function drawListLand(){
 function drawKpis(){
   if(HL==='land'){ drawKpisLand(); return; }
   document.getElementById('kpinat').style.display='none';
+  document.getElementById('nathead').style.display='none';
   const i=year-YMIN;
   const sel=selected?D.fields.find(f=>f.id===selected):null;
   const scope=sel?[sel]:filtered;                 // valgt felt overstyrer utvalget
@@ -1275,22 +1284,27 @@ function drawKpisLand(){
   drawKpiNat();
 }
 
+const ENGFC={vann:'#0ea5e9', vind:'#14b8a6', sol:'#f59e0b', varme:'#fb7185'};
 /* Nasjonal kontekst: solkraft og varmekraft har ingen NVE-API med
    geolokaliserte enkeltanlegg (kun vann og vind har det - se
    build_energiformer.py), sa de vises IKKE som punkter pa kartet. I stedet
-   vises SSBs nasjonale arstotaler her, tydelig merket som noe annet enn
-   utvalget over (som alltid er MW/GWh for anleggene i kartet/listen). */
+   vises SSBs nasjonale arstotaler her som fargede stat-chips, tydelig merket
+   som noe annet enn utvalget over (som alltid er MW/GWh for anleggene i
+   kartet/listen). */
 function drawKpiNat(){
-  const box=document.getElementById('kpinat');
-  if(!ENGF){ box.style.display='none'; return; }
+  const box=document.getElementById('kpinat'), head=document.getElementById('nathead');
+  if(!ENGF){ box.style.display='none'; head.style.display='none'; return; }
   const last=ENGF.ar.length-1;
   const y=ENGF.ar[last];
-  const sol=ENGF.sol[last], varme=ENGF.varme[last], vann=ENGF.vann[last], vind=ENGF.vind[last];
+  const rows=[['vann','Vannkraft',ENGF.vann[last]],['vind','Vindkraft',ENGF.vind[last]],
+    ['sol','Solkraft',ENGF.sol[last]],['varme','Varmekraft',ENGF.varme[last]]];
+  head.style.display='';
+  head.textContent=`Norge totalt ${y}, alle energiformer (SSB)`;
   box.style.display='';
-  box.innerHTML=`<b>Norge totalt ${y}</b> (SSB, nasjonale årstall - ikke kart-punkter):
-    vannkraft ${fmt(vann,0)}, vindkraft ${fmt(vind,0)}, solkraft ${fmt(sol,0)},
-    varmekraft ${fmt(varme,0)} GWh. Solkraft/varmekraft mangler NVE-data per anlegg
-    (mest små, ikke-geolokaliserte takanlegg) og kan derfor ikke vises på kartet.`;
+  box.innerHTML=rows.map(([k,l,v])=>
+    `<div class="natchip"><span class="d" style="background:${ENGFC[k]}"></span>
+      <span class="l">${l}</span><b>${fmt(v,0)} GWh</b></div>`).join('')+
+    `<div class="natfoot" style="width:100%">Solkraft/varmekraft mangler NVE-data per anlegg (mest små, ikke-geolokaliserte takanlegg) og kan derfor ikke vises som punkter på kartet.</div>`;
 }
 
 /* ---------- grafer ---------- */
