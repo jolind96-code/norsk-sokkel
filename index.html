@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norsk energiproduksjon — olje, gass og kraft, felt for felt</title>
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<script src="vendor/maplibre-gl.js"></script>
+<script src="vendor/echarts.min.js"></script>
+<style>
+:root{
+  --bg:#0f172a; --panel:#131f37; --card:#1e293b; --card2:#243449;
+  --line:#334155; --tx:#f7f5f2; --tx2:#94a3b8; --tx3:#8fa0b8;
+  --acc:#38bdf8; --acc2:#0ea5e9;
+  --oil:#34d399; --gas:#f87171; --both:#fbbf24; --con:#c084fc;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
+  font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;font-size:13px}
+button,select,input{font-family:inherit}
+a{color:var(--acc)}
+
+#app{display:grid;grid-template-columns:320px 1fr 420px;grid-template-rows:56px 1fr;height:100vh}
+header{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 18px;
+  background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;font-weight:700;margin:0;letter-spacing:-.2px}
+header h1 em{font-style:normal;color:var(--acc)}
+.sub{font-size:11px;color:var(--tx3)}
+.spacer{flex:1}
+
+/* chips */
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{background:var(--card);border:1px solid var(--line);color:var(--tx2);
+  padding:4px 10px;border-radius:999px;font-size:11px;cursor:pointer;transition:.13s;white-space:nowrap}
+.chip:hover{border-color:var(--tx3);color:var(--tx)}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#082f49;font-weight:600}
+.chip .n{opacity:.65;font-size:10px;margin-left:3px}
+/* Kartlag-knapper (strøm/prisområder): av/på var for lite tydelig - lett a
+   forveksle med de vanlige filter-chipsene som alltid star noytrale nar de
+   ikke er valgt. PA-tilstanden far na en tydelig ramme/glow i tillegg til
+   fylt farge, pluss et hakemerke i teksten (fargeuavhengig signal). */
+.chip.layer{font-weight:600}
+.chip.layer.on{box-shadow:0 0 0 2px rgba(56,189,248,.35);}
+/* Hav/Land - de to hovedmodulene, tydelig segmentert bryter, ikke en chip
+   blant andre - dette ER hovednavigasjonen mellom to likeverdige datasett. */
+.havland{display:flex;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:2px;gap:2px}
+.hlbtn{background:transparent;border:none;color:var(--tx2);padding:5px 14px;
+  border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;transition:.13s;white-space:nowrap}
+.hlbtn:hover{color:var(--tx)}
+.hlbtn.on{background:var(--acc);color:#082f49;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+
+/* venstre */
+#side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.shead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+#search{width:100%;padding:8px 11px;background:var(--bg);border:1px solid var(--line);
+  border-radius:var(--r);color:var(--tx);font-size:12px;outline:none}
+#search:focus{border-color:var(--acc)}
+#search::placeholder{color:var(--tx3)}
+#cop{width:100%;padding:7px 9px;background:var(--bg);border:1px solid var(--line);
+  border-radius:var(--r);color:var(--tx);font-size:11.5px;outline:none;cursor:pointer}
+#cop:focus{border-color:var(--acc)}
+#cop option{background:var(--bg);color:var(--tx)}
+#active{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:9px;
+  padding-top:9px;border-top:1px solid var(--line)}
+#active .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;
+  width:100%;margin-bottom:1px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 6px 3px 8px;
+  border-radius:20px;background:rgba(56,189,248,.13);border:1px solid rgba(56,189,248,.35);
+  color:#bae6fd;white-space:nowrap}
+.pill.sel{background:rgba(250,204,21,.13);border-color:rgba(250,204,21,.4);color:#fde68a}
+.pill b{font-weight:600}
+.pill .x{cursor:pointer;opacity:.6;font-size:13px;line-height:1;padding:0 1px}
+.pill .x:hover{opacity:1;color:#fff}
+.pill.none{background:transparent;border-color:var(--line);color:var(--tx3)}
+#reset{margin-left:auto;font-size:11px;padding:4px 9px;border-radius:20px;cursor:pointer;
+  background:transparent;border:1px solid var(--line);color:var(--tx2)}
+#reset:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+#reset:disabled{opacity:.35;cursor:default}
+.flabel{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);font-weight:700;margin-bottom:-3px}
+/* Land-modus: felt-spesifikke filtre (operatør/status/havområde/type) og
+   "viser X av Y felt"-linjen gir ingen mening for kraftverk, så de skjules.
+   Søkefeltet virker fortsatt (powFiltered() matcher navn/eier). */
+#side.land-mode .fieldfilters,#side.land-mode #active{display:none}
+#charts.land-mode #tsmode{display:none}
+#listtitle{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--tx2);
+  font-weight:700;padding:9px 14px 5px}
+#list{flex:1;overflow-y:auto;padding:0 8px 10px}
+.row{display:grid;grid-template-columns:22px 1fr auto;gap:9px;align-items:center;
+  padding:7px 9px;cursor:pointer;border-radius:8px;position:relative;overflow:hidden}
+.row:hover{background:var(--card)}
+.row.sel{background:#0c3a52;box-shadow:inset 0 0 0 1px var(--acc)}
+.row .rk{font-size:10px;color:var(--tx3);text-align:right;font-variant-numeric:tabular-nums}
+.row .nm{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:1}
+.row .nm small{display:block;color:var(--tx3);font-size:10px;font-weight:400}
+.row .vl{font-size:11px;font-variant-numeric:tabular-nums;color:var(--tx2);text-align:right;z-index:1}
+.row .bar{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,rgba(56,189,248,.16),rgba(56,189,248,.02));z-index:0}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;flex:none}
+
+/* kart */
+#mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0}
+.maplibregl-ctrl-attrib{background:rgba(15,23,42,.82)!important;font-size:10px}
+.maplibregl-ctrl-attrib a{color:var(--tx3)!important}
+.glass{background:rgba(19,31,55,.93);border:1px solid var(--line);border-radius:var(--r);
+  backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+#legend{position:absolute;left:14px;bottom:14px;z-index:5;padding:10px 12px 9px;font-size:10.5px;max-width:214px}
+#legend b{display:block;font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--tx2);margin-bottom:7px;padding-right:22px}
+#sizeleg{display:flex;align-items:flex-end;gap:10px;height:38px;margin-bottom:3px}
+#sizeleg .sz{text-align:center;color:var(--tx3);font-size:9px}
+#sizeleg .cir{border:1.4px solid var(--tx2);border-radius:50%;margin:0 auto 3px}
+.lg-sz{display:grid;grid-template-columns:28px 52px 1fr;align-items:center;
+  gap:6px;margin-top:5px}
+.lg-sz .cw{display:flex;align-items:center;justify-content:center;height:24px}
+.lg-sz i{display:block;border:1.5px solid var(--tx2);border-radius:50%;
+  background:rgba(148,163,184,.16)}
+.lg-sz .kl{color:var(--tx);font-weight:600}
+.lg-sz .vv{color:var(--tx3);text-align:right;font-variant-numeric:tabular-nums}
+.lg-u{color:var(--tx3);font-size:9px;text-align:right;margin-top:2px}
+/* --- tilgjengelighet: synlig fokus og respekt for redusert bevegelse --- */
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+.chip:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{
+  outline:2px solid var(--acc);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+.lg-row{display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--tx2)}
+#timebar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:5;
+  padding:10px 16px;display:flex;align-items:center;gap:13px;min-width:600px}
+#play{background:var(--acc);border:0;color:#082f49;width:30px;height:30px;border-radius:50%;
+  cursor:pointer;font-size:12px;flex:none;font-weight:700}
+#year{flex:1;accent-color:var(--acc);height:4px}
+#yearlbl{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;min-width:80px;text-align:right;line-height:1.05}
+#yearlbl span{font-size:9px;color:var(--both);display:block;font-weight:500}
+.maplibregl-popup-content{background:rgba(15,23,42,.97);border:1px solid var(--line);
+  border-radius:8px;color:var(--tx);font-size:12px;padding:9px 11px;box-shadow:0 6px 22px rgba(0,0,0,.55)}
+.maplibregl-popup-tip{display:none}
+.maplibregl-popup-close-button{color:#94a3b8;font-size:16px;padding:2px 6px;top:2px;right:2px}
+.maplibregl-popup-close-button:hover{background:rgba(148,163,184,.15);color:#e2e8f0}
+
+/* høyre */
+#charts{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0}
+.card{border-bottom:1px solid var(--line);padding:13px 15px}
+.card h3{margin:0 0 10px;font-size:10px;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--tx2);font-weight:700;display:flex;align-items:center;gap:9px}
+.chart{width:100%;height:195px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.kpi{background:var(--card);border-radius:9px;padding:9px 11px}
+.kpi .k{font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.kpi .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.4px}
+.kpi .u{font-size:9px;color:var(--tx3);margin-top:1px}
+.note{font-size:11px;color:var(--tx3);margin-top:9px;line-height:1.55}
+.note b{color:var(--tx2);font-weight:600}
+.scope{font-size:11px;color:var(--acc);background:rgba(56,189,248,.09);
+  border-left:2px solid var(--acc);padding:5px 9px;border-radius:0 6px 6px 0;margin-bottom:9px}
+#tick{margin-top:11px;padding:11px 12px;border-radius:var(--r);
+  background:linear-gradient(135deg,rgba(250,204,21,.10),rgba(56,189,248,.07));
+  border:1px solid rgba(250,204,21,.22)}
+.tk-head{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);
+  display:flex;align-items:center;justify-content:space-between}
+.tk-head span{color:var(--acc);font-variant-numeric:tabular-nums}
+.live{display:inline-flex;align-items:center;gap:6px;color:#4ade80 !important;font-weight:700}
+.live i{width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;
+  box-shadow:0 0 0 0 rgba(74,222,128,.75);animation:puls 1.8s infinite}
+@keyframes puls{
+  0%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}
+  70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}
+  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+.tk-since{font-size:10px;color:var(--tx3);margin-top:5px}
+.tk-since span{color:var(--acc);font-variant-numeric:tabular-nums;margin-left:5px}
+.tk2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.tk2c{min-width:0}
+.tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk2c .lbl i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
+.tk2c .val{font-size:21px;font-weight:700;letter-spacing:-.8px;color:#fde68a;
+  font-variant-numeric:tabular-nums;line-height:1.2;margin:2px 0 1px}
+.tk2c .val.blaa{color:#7dd3fc}
+.tk2c .rate{font-size:10px;color:var(--tx3);line-height:1.4}
+.tk-val{font-size:27px;font-weight:700;letter-spacing:-1px;color:#fde68a;
+  font-variant-numeric:tabular-nums;line-height:1.15;margin:3px 0 1px}
+.tk-sub{font-size:11px;color:var(--tx2)}
+.tk-fun{font-size:11.5px;color:#fcd34d;margin-top:5px;line-height:1.45;min-height:16px}
+.tk-cmp{margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,.18)}
+.tk-cmp .chead{display:grid;grid-template-columns:118px 1fr 62px;gap:7px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)}
+.tk-cmp .chead span:first-child{grid-column:2}
+.tk-cmp .chead span:last-child{grid-column:3;text-align:right}
+.crad{display:grid;grid-template-columns:118px 1fr 58px 1fr 66px;align-items:center;
+  gap:6px;font-size:11px;margin-top:5px}
+.crad .nv{color:var(--tx2);display:flex;align-items:center;gap:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crad .nv i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
+.crad .sp{height:6px;background:rgba(2,6,16,.5);border-radius:3px;overflow:hidden}
+.crad .sp b{display:block;height:100%;border-radius:3px}
+.crad .tw,.crad .kr{text-align:right;font-variant-numeric:tabular-nums;
+  color:var(--tx);font-weight:600}
+.tk-cmp .fot{font-size:9.5px;color:var(--tx3);margin-top:7px;line-height:1.5}
+.tk-cmp .fot b{color:var(--tx2)}
+.tk-bars{display:flex;gap:3px;margin:8px 0 2px;height:6px;border-radius:3px;overflow:hidden}
+.tk-bars i{display:block;height:100%}
+.tk-note{font-size:9.5px;color:var(--tx3);line-height:1.5;margin-top:6px}
+.tk-note b{color:var(--tx2)}
+.tk-lg{display:flex;flex-wrap:wrap;gap:7px;font-size:9.5px;color:var(--tx3);margin-top:4px}
+.tk-lg span{display:inline-flex;align-items:center;gap:3px}
+.tk-lg i{width:7px;height:7px;border-radius:2px;display:inline-block}
+#kilde{font-size:10px;color:var(--tx3);text-decoration:none;margin-left:8px;
+  padding:3px 8px;border:1px solid var(--line);border-radius:20px;white-space:nowrap}
+#kilde:hover{color:var(--acc);border-color:var(--acc)}
+#uoff{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:#fbbf24;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.4);
+  padding:3px 9px;border-radius:20px;margin-left:14px;white-space:nowrap;cursor:help}
+.lg-sep{height:1px;background:var(--line);margin:7px 0 6px}
+.lg-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:4px}
+.bd{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;
+  border:1.4px solid rgba(255,255,255,.55)}
+#legend.mini .lg-body{display:none}
+#legend.mini{padding-bottom:8px}
+#lg-lukk{position:absolute;top:6px;right:6px;width:19px;height:19px;line-height:1;
+  background:transparent;border:1px solid var(--line);border-radius:5px;
+  color:var(--tx3);font-size:13px;cursor:pointer;padding:0}
+#lg-lukk:hover{color:var(--acc);border-color:var(--acc)}
+/* --- strompris-panel --- */
+#spot{position:absolute;left:14px;top:14px;z-index:5;padding:10px 12px;
+  font-size:11px;width:216px}
+#spot h4{margin:0 0 4px;font-size:9px;text-transform:uppercase;letter-spacing:.9px;
+  color:var(--tx2);font-weight:600;display:flex;align-items:center;gap:6px}
+#spot .klokke{color:var(--tx3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:auto}
+#spot .sr{display:grid;grid-template-columns:30px 1fr 58px;align-items:center;
+  gap:7px;margin-top:5px}
+#spot .omr{color:var(--tx2);font-weight:600}
+#spot .bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+#spot .bar i{display:block;height:100%;border-radius:3px}
+#spot .pr{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx)}
+#spot .foot{font-size:9px;color:var(--tx3);margin-top:7px;line-height:1.5;
+  border-top:1px solid var(--line);padding-top:6px}
+#spot .verdi{color:#fde68a;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.prt{margin-top:11px}
+.prt-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:6px}
+.prt-r{display:grid;grid-template-columns:118px 1fr 46px;align-items:center;
+  gap:8px;font-size:11px;margin-bottom:4px}
+.prt-b{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.prt-b i{display:block;height:100%;border-radius:3px;background:var(--acc)}
+.prt-r.op .prt-b i{background:#fbbf24}
+.prt-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
+.prt-r.op .prt-n{color:var(--tx);font-weight:600}
+.prt-p{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx2)}
+.prt-r.op .prt-p{color:#fde68a;font-weight:600}
+.inc{margin-top:11px;padding:9px 10px;border-radius:var(--r);
+  background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.2)}
+.inc-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)}
+.inc-v{font-size:19px;font-weight:700;color:#fde68a;letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums;margin:2px 0 1px}
+.inc-s{font-size:10px;color:var(--tx3)}
+#hjelp{position:absolute;inset:0;background:rgba(2,6,16,.82);z-index:60;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+#hjelp.skjult{display:none}
+.hb{max-width:560px;max-height:86vh;overflow-y:auto;background:var(--pnl);border:1px solid var(--line);
+  border-radius:14px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.hb h2{font-size:19px;margin:0 0 3px;letter-spacing:-.4px}
+.hb .lead{font-size:12.5px;color:var(--tx2);margin-bottom:14px;line-height:1.6}
+.hb ol{margin:0 0 14px;padding-left:17px;font-size:12px;color:var(--tx2);line-height:1.75}
+.hb ol b{color:var(--tx)}
+.hb .fakta{display:flex;gap:8px;margin-bottom:14px}
+.hb .fk{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
+.hb .fk b{display:block;font-size:13px;color:var(--acc)}
+.hb .fk span{font-size:10px;color:var(--tx3);line-height:1.45;display:block;margin-top:2px}
+.hb button{background:var(--acc);color:#04121f;border:0;border-radius:8px;
+  padding:9px 18px;font-size:12.5px;font-weight:600;cursor:pointer}
+.hb .liten{font-size:10px;color:var(--tx3);margin-top:11px;line-height:1.5}
+.metode{font-size:11px;color:var(--tx2);line-height:1.65;background:var(--bg);
+  border-left:2px solid rgba(250,204,21,.5);border-radius:0 8px 8px 0;
+  padding:9px 12px;margin-bottom:14px}
+.metode b{color:var(--tx)}
+.kilder{font-size:11px;color:var(--tx2);line-height:1.6;background:var(--bg);
+  border-left:2px solid rgba(56,189,248,.5);border-radius:0 8px 8px 0;
+  padding:9px 12px;margin-bottom:14px}
+.kilder b{color:var(--tx)}
+.kilder ul{margin:7px 0 0;padding-left:16px}
+.kilder li{margin-bottom:5px}
+.kilder a{color:#7dd3fc}
+.kilder i{color:var(--tx3);font-style:italic}
+.enh{color:var(--acc);font-weight:600;text-transform:none;letter-spacing:0;margin-left:7px}
+#hjelpknapp{font-size:10px;color:var(--tx3);background:transparent;border:1px solid var(--line);
+  border-radius:20px;padding:3px 9px;margin-left:8px;cursor:pointer}
+#hjelpknapp:hover{color:var(--acc);border-color:var(--acc)}
+#endrknapp{font-size:10px;color:var(--tx3);background:transparent;border:1px solid var(--line);
+  border-radius:20px;padding:3px 9px;margin-left:6px;cursor:pointer}
+#endrknapp:hover{color:var(--acc);border-color:var(--acc)}
+#endringer-seksjon ul ul{margin-top:4px}
+.empty{color:var(--tx3);font-size:12px;padding:16px 0;text-align:center}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);z-index:9999;flex-direction:column;gap:14px;color:var(--tx2)}
+.spin{width:26px;height:26px;border:2.5px solid var(--line);border-top-color:var(--acc);
+  border-radius:50%;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+table.res{width:100%;margin-top:12px;font-size:11px;border-collapse:collapse}
+table.res td{padding:3px 0}
+table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:uppercase;font-weight:700}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spin"></div><div>Laster åpne data fra Sokkeldirektoratet…</div></div>
+
+<div id="app">
+  <div id="hjelp" class="skjult"><div class="hb">
+    <h2>Norsk energiproduksjon, felt for felt</h2>
+    <div class="lead">To likeverdige deler av norsk energiproduksjon, samme kart: <b>olje og gass</b> fra
+      feltene på sokkelen (fra det første funnet i 1971) og <b>kraft fra vann og vind</b> på land.
+      Alle tall kommer fra Sokkeldirektoratet og NVE.</div>
+    <ol>
+      <li><b>Boblene i kartet</b> er felt til havs og kraftanlegg på land. Jo større boble, jo mer produseres/leveres.</li>
+      <li><b>Trykk ▶</b> nederst for å spole gjennom årene og se produksjonen vokse fram.</li>
+      <li><b>Velg «Kumulativt»</b> for å se hvem som har produsert mest gjennom hele historien.</li>
+      <li><b>Klikk på et felt eller kraftanlegg</b> — i kartet, listen eller stolpediagrammet — for detaljer.</li>
+    </ol>
+    <div class="fakta">
+      <div class="fk"><b>1 fat</b><span>159 liter olje. Det målet verden handler olje i.</span></div>
+      <div class="fk"><b>o.e.</b><span>Oljeekvivalenter. Gass regnet om til «like mye energi som olje», så alt kan summeres.</span></div>
+      <div class="fk"><b>Sm³</b><span>Standard kubikkmeter. Målet Norge bruker. 1 Sm³ = 6,29 fat.</span></div>
+    </div>
+    <div class="metode">
+      <b>Slik regner vi ut inntektene.</b> Vi tar produsert mengde og ganger med
+      gjennomsnittlig markedspris det året: <b>Brent råolje</b> for olje og kondensat, og
+      <b>europeisk gasspris</b> for gass. NGL prises sjablongmessig til halv oljepris.
+      Summen regnes om til kroner med Norges Banks årskurs for dollar.
+      Prisene er hentet fra Verdensbanken, EIA og Norges Bank.
+      <br>Dette er <b>bruttoverdien av det som ble produsert</b> — ikke faktisk salgsinntekt,
+      og ikke fortjeneste. Kostnader, skatt, langsiktige kontrakter og prissikring er ikke med.
+    </div>
+    <div class="kilder" id="endringer-seksjon">
+      <b>Endringslogg — hva er nytt eller endret.</b>
+      Metoden og datagrunnlaget justeres av og til (f.eks. omregningsfaktorer, nye moduler,
+      prisberegning). Her ser du de siste endringene, sånn at tallene ikke bare endrer seg usporet.
+      <ul id="endringsliste"></ul>
+    </div>
+    <div class="kilder">
+      <b>Åpne kilder — hent dataene selv og verifiser.</b>
+      Alt her bygger på offentlige, åpne datakilder. Ingen nøkkel eller innlogging trengs
+      for å hente det samme selv:
+      <ul>
+        <li><b>Produksjon og reserver (felt for felt):</b>
+          <a href="https://factpages.sodir.no/" target="_blank" rel="noopener">Sokkeldirektoratets Factpages</a>
+          og <a href="https://factmaps.sodir.no/" target="_blank" rel="noopener">Factmaps</a> (kartgeometri).
+          Lisens: <a href="https://data.norge.no/nlod/no/2.0" target="_blank" rel="noopener">NLOD</a>.</li>
+        <li><b>Olje- og gassoverblikk / kontekst:</b>
+          <a href="https://www.norskpetroleum.no/" target="_blank" rel="noopener">norskpetroleum.no</a>
+          (Sokkeldirektoratet og Energidepartementet i fellesskap).</li>
+        <li><b>Vann- og vindkraftverk på land:</b>
+          <a href="https://www.nve.no/energi/energisystem/vannkraft/" target="_blank" rel="noopener">NVE</a> —
+          anleggsdata under NLOD, kartgeometri via
+          <a href="https://kartkatalog.geonorge.no/" target="_blank" rel="noopener">Geonorge/GeoNorge WFS</a>.</li>
+        <li><b>Strøm-spotpris:</b>
+          <a href="https://www.hvakosterstrommen.no/" target="_blank" rel="noopener">hvakosterstrommen.no</a>,
+          som bygger på <a href="https://data.nordpoolgroup.com/" target="_blank" rel="noopener">Nord Pool</a>
+          sine dagen-før-priser.</li>
+        <li><b>Oljepris (Brent) og europeisk gasspris:</b>
+          <a href="https://www.worldbank.org/en/research/commodity-markets" target="_blank" rel="noopener">Verdensbankens Pink Sheet</a>
+          (historikk) og <a href="https://www.eia.gov/dnav/pet/hist/LeafHandler.ashx?n=PET&amp;s=RBRTE&amp;f=M" target="_blank" rel="noopener">EIA</a> (ferske måneder).</li>
+        <li><b>Valutakurs USD/NOK:</b>
+          <a href="https://www.norges-bank.no/tema/Statistikk/Valutakurser/" target="_blank" rel="noopener">Norges Bank</a> (åpent API).</li>
+        <li><b>Konsumprisindeks (for å regne om til dagens kroneverdi):</b>
+          <a href="https://www.ssb.no/statbank/table/08184" target="_blank" rel="noopener">SSB, tabell 08184</a>.</li>
+        <li><b>Prisområdegrenser NO1–NO5 (tilnærmet, fylkesbasert):</b>
+          <a href="https://kartkatalog.geonorge.no/metadata/administrative-enheter-fylker/f9fb9ee0-e1de-4b3d-8210-fa287f2ea363" target="_blank" rel="noopener">Kartverket, fylkesgrenser via Geonorge</a>.
+          <i>Ekte nettopologi finnes hos <a href="https://www.nve.no/" target="_blank" rel="noopener">NVE</a>/Statnett, ikke brukt her.</i></li>
+        <li><b>Bakgrunnskart:</b>
+          <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> /
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap-bidragsytere</a>.</li>
+      </ul>
+    </div>
+    <button id="hjelplukk">Kom i gang</button>
+    <div class="liten">Uavhengig prosjekt, ikke tilknyttet Sokkeldirektoratet.
+      Produksjons- og reservetall er hentet direkte fra Sokkeldirektoratets åpne data (NLOD).
+      Inntektsanslagene er våre egne og omtrentlige.</div>
+  </div></div>
+  <header>
+    <h1>Norsk energiproduksjon</h1>
+    <span class="sub" id="hdrsub"></span>
+    <span class="spacer"></span>
+    <span class="sub">Enhet</span>
+    <div class="chips" id="unitchips">
+      <button class="chip on" data-u="boe">Fat (boe)</button>
+      <button class="chip" data-u="sm3">Sm³</button>
+    </div>
+    <span class="sub">Måltall</span>
+    <div class="chips" id="metricchips"></div>
+    <div class="havland" id="havland">
+      <button class="hlbtn on" data-hl="hav" title="Olje og gass fra sokkelen">🌊 Hav</button>
+      <button class="hlbtn" data-hl="land" title="Vann- og vindkraft på land">⛰️ Land</button>
+    </div>
+    <div class="chips" style="margin-left:10px">
+      <button class="chip layer" id="omrchip" aria-pressed="false" title="Vis grensene mellom prisområdene NO1–NO5 (tilnærmet, basert på fylkesgrenser)">🗺️ Prisområder</button>
+    </div>
+    <span id="uoff" title="Dette er et privat, uavhengig prosjekt uten tilknytning til Sokkeldirektoratet eller noe selskap.">Uoffisiell</span>
+    <button id="hjelpknapp" title="Vis forklaring">? Hjelp</button>
+    <button id="endrknapp" title="Se hva som er endret i dashbordet over tid">🕓 Endringslogg</button>
+    <a id="kilde" href="https://data.norge.no/nlod/no/2.0"
+       target="_blank" rel="noopener"
+       title="Inneholder data under Norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Sokkeldirektoratet.&#10;Data er bearbeidet av oss: månedstall er aggregert til år, og volum er regnet om til fat.&#10;&#10;Øvrige kilder: Verdensbanken og EIA (priser), Norges Bank (valutakurs), SSB (folketall), OpenStreetMap / OpenFreeMap (kart).">Data: Sokkeldirektoratet · NLOD</a>
+  </header>
+
+  <aside id="side">
+    <div class="shead">
+      <input id="search" placeholder="Søk felt eller operatør…">
+      <div class="fieldfilters">
+        <div class="flabel">Operatør</div>
+        <select id="cop" aria-label="Filtrer p? operat?r"></select>
+        <div class="flabel">Status</div>
+        <div class="chips" id="cstatus"></div>
+        <div class="flabel">Havområde</div>
+        <div class="chips" id="carea"></div>
+        <div class="flabel">Type</div>
+        <div class="chips" id="chc"></div>
+      </div>
+      <div id="active"></div>
+    </div>
+    <div class="row-between">
+      <div id="listtitle"></div>
+      <button class="chip" id="csvbtn" title="Last ned data for gjeldende utvalg (alle år, valgt enhet) som CSV">⬇ CSV</button>
+    </div>
+    <div id="list"></div>
+  </aside>
+
+  <div id="mapwrap">
+    <div id="map" role="application" aria-label="Kart over felt p? norsk sokkel. Bruk piltaster for ? panorere, pluss og minus for ? zoome."></div>
+    <div id="legend" class="glass"></div>
+    <div id="spot" class="glass" hidden></div>
+    <div id="timebar" class="glass">
+      <div class="chips" id="viewmode">
+        <button class="chip" data-c="0">Per år</button>
+        <button class="chip on" data-c="1">Kumulativt</button>
+      </div>
+      <button id="play" aria-label="Spill av produksjonen år for år">▶</button>
+      <input type="range" id="year" aria-label="Velg ?r">
+      <div id="yearlbl"></div>
+    </div>
+  </div>
+
+  <section id="charts">
+    <div class="card">
+      <h3><span id="kpititle">Utvalg</span></h3>
+      <div class="scope" id="kpiscope"></div>
+      <div class="kpis" id="kpis" aria-live="polite"></div>
+      <div class="note" id="kpinote"></div>
+
+      <div id="tick">
+        <div class="tk-head"><span class="live"><i></i>Direkte</span>
+          <span id="tk-klokke"></span></div>
+        <div class="tk-since">Siden du åpnet siden<span id="tk-time"></span></div>
+        <div class="tk2">
+          <div class="tk2c">
+            <div class="lbl"><i style="background:#fbbf24"></i>Olje og gass</div>
+            <div class="val" id="tk-nok" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-sub"></div>
+          </div>
+          <div class="tk2c">
+            <div class="lbl"><i style="background:#38bdf8"></i>Strøm på land</div>
+            <div class="val blaa" id="tk-pow" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-powsub"></div>
+          </div>
+        </div>
+        <div class="tk-fun" id="tk-fun"></div>
+        <div class="tk-cmp" id="tk-cmp" hidden></div>
+        <div class="tk-note" id="tk-note"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Feltdetaljer</h3>
+      <div id="detail"></div>
+    </div>
+    <div class="card">
+      <h3>Produksjon over tid <span class="spacer"></span>
+        <div class="chips" id="tsmode">
+          <button class="chip on" data-m="type">Produkt</button>
+          <button class="chip" data-m="area">Havområde</button>
+          <button class="chip" data-m="top">Felt</button>
+          <button class="chip" data-m="verdi">Inntekter</button>
+        </div>
+      </h3>
+      <div class="scope" id="tsscope"></div>
+      <div class="chart" id="ts"></div>
+    </div>
+    <div class="card">
+      <h3>Rangering <span class="spacer"></span><span id="ranklbl" style="color:var(--tx3);font-weight:400;text-transform:none;letter-spacing:0"></span></h3>
+      <div class="chart" id="rank" style="height:235px"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const METRICS=[
+ {k:'oe', l:'o.e.', u:'mill Sm³ o.e.', b:'mill fat o.e.'},
+ {k:'oil',l:'Olje', u:'mill Sm³',      b:'mill fat'},
+ {k:'gas',l:'Gass', u:'mrd Sm³',       b:'mill fat o.e.'},
+ {k:'ngl',l:'NGL',  u:'mill Sm³',      b:'mill fat'},
+ {k:'con',l:'Kond.',u:'mill Sm³',      b:'mill fat'},
+ {k:'wat',l:'Vann', u:'mill Sm³',      b:'mill fat'}];
+/* Omregning etter Sokkeldirektoratets egen faktortabell
+   (Fakta, Vedlegg 5 "Omrekningsfaktorar", sodir.no):
+     1 Sm³ råolje    = 6,29 fat
+     1 Sm³ olje      = 1,0 Sm³ o.e.
+     1 Sm³ kondensat = 1,0 Sm³ o.e.
+     1000 Sm³ gass   = 1,0 Sm³ o.e.  → 1 mrd Sm³ gass = 1 mill Sm³ o.e.
+   Produksjonstallene bruker SODIRs egen o.e.-kolonne, som deretter
+   ganges med 6,29 for å få fat / fatekvivalenter. */
+const BOE=6.29;
+const NGL_OE=1.9;   // 1 tonn NGL = 1,9 Sm³ o.e. (gjelder reservetabellen)
+const uLabel=k=>{const m=METRICS.find(x=>x.k===k)||METRICS[0]; return unit==='boe'?m.b:m.u;};
+const HC={'OIL':'#34d399','GAS':'#f87171','OIL/GAS':'#fbbf24','GAS/CONDENSATE':'#c084fc'};
+const HCN={'OIL':'Olje','GAS':'Gass','OIL/GAS':'Olje/gass','GAS/CONDENSATE':'Gass/kond.'};
+const AREAN={'NORTH SEA':'Nordsjøen','NORWEGIAN SEA':'Norskehavet','BARENTS SEA':'Barentshavet',
+  'BARENTS SEA SOUTH':'Barentshavet sør','BARENTS SEA NORTH':'Barentshavet nord',
+  'SKAGERRAK':'Skagerrak','UNKNOWN':'Ukjent'};
+const STATN={'Producing':'I produksjon','Shut down':'Nedstengt','Approved for production':'Godkjent'};
+const hcC=t=>HC[t]||'#94a3b8', hcN=t=>HCN[t]||t||'Ukjent';
+/* Sodir skriver havomradene med varierende store/sma bokstaver. */
+const areaN=a=>a?(AREAN[String(a).toUpperCase().trim()]||a):'Ukjent';
+const statN=s=>STATN[s]||s;
+const tc=s=>s.replace(/[A-ZÆØÅ][A-ZÆØÅ0-9/\-\.]*/g,w=>
+  (w.length<=3&&!/[0-9]/.test(w)&&w.length>1)?w:w.charAt(0)+w.slice(1).toLowerCase());
+const fmt=(v,d=1)=>v==null||isNaN(v)?'–':v.toLocaleString('nb-NO',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+let D,YMIN,YMAX,year,metric='oe',tsMode='type',selected=null,playing=null,filtered=[],mapReady=false;
+let selectedPower=null;   // valgt kraftanlegg (id = rank i power.json), viser detalj i samme panel
+let clickPopup=null;      // kompakt popup i kartet ved valgt felt/anlegg (feltdetalj-hover)
+let cum=true, unit='boe';
+let map,tsChart,rankChart,popup;
+const F={status:null,area:null,hc:null,op:null};
+let FAC={};                                  // npdid -> {k, surface, count}
+let PART={};                                 // npdid -> [[selskap, andel%], ...]
+const SHOW_FAC=true;                         // innretningsikoner - av inntil videre
+
+/* ---------- URL-state (delbar lenke) ----------
+   Tilstanden kodes kompakt i location.hash, slik at brukeren kan kopiere
+   URL-en og dele akkurat det utvalget/den visningen de ser. Leses en gang,
+   helt tidlig - lenkeparametere som ikke krever kart/data (ar, enhet, metrikk,
+   kumulativt, tidsseriemodus, filtre, sok) settes for buildChips()/buildSlider()
+   kalles. Valgt felt/kraftanlegg og Hav/Land-modus krever at kart+data er klare
+   (delvis asynkront), sa de gjenopprettes forst i restoreUrlSelection(),
+   kalt etter map 'load'. Skrives fra writeUrlState(), kalt fra drawActive()
+   (traff av naston alle tilstandsendrende stier) og noen fa steder som ikke
+   gar via den. */
+function readUrlState(){
+  const h=location.hash.replace(/^#/,'');
+  if(!h) return {};
+  const p=new URLSearchParams(h);
+  const out={};
+  if(p.has('hl'))  out.hl  = p.get('hl')==='land'?'land':'hav';
+  if(p.has('y'))   out.y   = +p.get('y');
+  if(p.has('u'))   out.u   = p.get('u');
+  if(p.has('m'))   out.m   = p.get('m');
+  if(p.has('cum')) out.cum = p.get('cum')!=='0';
+  if(p.has('ts'))  out.ts  = p.get('ts');
+  if(p.has('st'))  out.st  = p.get('st');
+  if(p.has('ar'))  out.ar  = p.get('ar');
+  if(p.has('hc'))  out.hc  = p.get('hc');
+  if(p.has('op'))  out.op  = p.get('op');
+  if(p.has('q'))   out.q   = p.get('q');
+  if(p.has('omr')) out.omr = p.get('omr')==='1';
+  if(p.has('sel')) out.sel = p.get('sel');
+  if(p.has('pow')) out.pow = +p.get('pow');
+  return out;
+}
+const URLSTATE=readUrlState();   // lest umiddelbart, brukt gjennom hele init-flyten
+
+function writeUrlState(){
+  if(!D) return;
+  const p=new URLSearchParams();
+  if(HL==='land') p.set('hl','land');
+  const defYear = D.meta.partialYear ? YMAX-1 : YMAX;
+  if(year!==defYear) p.set('y',year);
+  if(unit!=='boe') p.set('u',unit);
+  if(metric!=='oe') p.set('m',metric);
+  if(!cum) p.set('cum','0');
+  if(tsMode!=='type') p.set('ts',tsMode);
+  if(F.status) p.set('st',F.status);
+  if(F.area)   p.set('ar',F.area);
+  if(F.hc)     p.set('hc',F.hc);
+  if(F.op)     p.set('op',F.op);
+  const q=document.getElementById('search').value.trim();
+  if(q) p.set('q',q);
+  if(omrOn) p.set('omr','1');
+  if(selected) p.set('sel',selected);
+  if(selectedPower!=null) p.set('pow',selectedPower);
+  const str=p.toString();
+  history.replaceState(null,'',str?('#'+str):(location.pathname+location.search));
+}
+
+/* Gjenoppretter valg som krever kart+data (felt/kraftanlegg/Hav-Land/prisomrader).
+   Kalles etter map 'load', na mapReady=true og forste refresh()/fitToFields()
+   har kjort - eventuell flyTo() fra select()/selectPower() overstyrer da
+   riktig den innledende fitBounds()-en. */
+async function restoreUrlSelection(){
+  const st=URLSTATE;
+  if(st.hl==='land'){
+    await setHL('land');                                   // venter pa power.json
+    if(st.pow!=null && POW && POW.verk[st.pow]) selectPower(st.pow);
+  }else if(st.sel && D.fields.some(f=>f.id===st.sel)){
+    select(st.sel);
+  }
+  if(st.omr) await toggleOmr();
+}
+
+/* ---------- init ---------- */
+fetch('data.json').then(r=>r.json()).then(d=>{
+  D=d; YMIN=D.meta.yearMin; YMAX=D.meta.yearMax;
+  year = D.meta.partialYear ? YMAX-1 : YMAX;
+
+  /* URL-state: enkle verdier gjenopprettes for chips/slider/kart bygges,
+     sa de allerede far riktig utgangspunkt (ikke bare riktig etter et
+     etterfolgende sync-kall). */
+  if(URLSTATE.y!=null && URLSTATE.y>=YMIN && URLSTATE.y<=YMAX) year=URLSTATE.y;
+  if(URLSTATE.u==='sm3'||URLSTATE.u==='boe') unit=URLSTATE.u;
+  if(URLSTATE.m && METRICS.some(x=>x.k===URLSTATE.m)) metric=URLSTATE.m;
+  if(URLSTATE.cum!=null) cum=URLSTATE.cum;
+  if(URLSTATE.ts) tsMode=URLSTATE.ts;
+  if(URLSTATE.st) F.status=URLSTATE.st;
+  if(URLSTATE.ar) F.area=URLSTATE.ar;
+  if(URLSTATE.hc) F.hc=URLSTATE.hc;
+  if(URLSTATE.op) F.op=URLSTATE.op;
+
+  const byId={}; D.geo.features.forEach(f=>{ byId[String(f.properties.fldNpdidField)]=f; });
+  D.fields.forEach(f=>{
+    const g=byId[f.id];
+    if(g&&g.geometry){ const c=polyCenter(g.geometry); if(c&&!isNaN(c[0])&&!isNaN(c[1])){ f.center=c; f.feature=g; } }
+    // kumulative serier: sum t.o.m. hvert år
+    f.c={};
+    for(const k in f.s){ let a=0; f.c[k]=f.s[k].map(v=>(a+=v)); }
+  });
+
+  document.getElementById('loading').remove();
+  document.getElementById('hdrsub').textContent=`${D.fields.length} felt · ${YMIN}–${YMAX}`;
+  buildChips(); buildSlider(); buildMap();
+  /* URL-state: unitchips/viewmode/tsmode har hardkodet "on"-klasse i HTML-malen
+     (ikke dynamisk generert), sa de ma synkroniseres manuelt. status/omrade/
+     hovedkategori/operator-chips synkroniseres av syncChips() (finnes fra for). */
+  if(URLSTATE.q) document.getElementById('search').value=URLSTATE.q;
+  syncChips();
+  document.querySelectorAll('#unitchips .chip').forEach(c=>c.classList.toggle('on',c.dataset.u===unit));
+  document.querySelectorAll('#viewmode .chip').forEach(c=>c.classList.toggle('on',(c.dataset.c==='1')===cum));
+  document.querySelectorAll('#tsmode .chip').forEach(c=>c.classList.toggle('on',c.dataset.m===tsMode));
+  tsChart=echarts.init(document.getElementById('ts'));
+  rankChart=echarts.init(document.getElementById('rank'));
+  rankChart.on('click',p=>{const f=D.fields.find(x=>tc(x.name)===p.name); if(f) select(f.id);});
+  new ResizeObserver(()=>{tsChart.resize();rankChart.resize();}).observe(document.getElementById('charts'));
+  /* Filtrene pavirker filtered/liste/grafer, men ikke kartet (mapReady er
+     ikke satt enna her - drawMap() no-op'er trygt til map 'load' kaller
+     refresh() pa nytt). */
+  if(URLSTATE.q||URLSTATE.st||URLSTATE.ar||URLSTATE.hc||URLSTATE.op) refresh();
+
+  /* Innretningstyper per felt (SODIR facility_fixed). Valgfri - kartet
+     fungerer uten, feltene faller da tilbake til havbunnsikonet. */
+  fetch('facilities.json').then(r=>r.json()).then(fj=>{
+    FAC=fj.mainIcon||{}; if(mapReady) drawMap();
+  }).catch(()=>{});
+
+  /* Rettighetshavere per felt (SODIR lag 7108). Valgfri. */
+  fetch('partners.json').then(r=>r.json()).then(pj=>{
+    PART=pj||{}; drawDetail();
+  }).catch(()=>{});
+
+  initHjelp();
+
+  /* Inntektsteller: prisene lastes etter dataene, telleren starter nar de er klare. */
+  fetch('prices.json').then(r=>r.json()).then(p=>{
+    P=p; computeTickRate(); drawTick(); tickLegend();
+    const loop=()=>{drawTick();requestAnimationFrame(loop);};
+    requestAnimationFrame(loop);
+    /* Stromdata lastes med en gang sa sammenligningen i telleren alltid vises.
+       Selve kartlaget legges forst til nar brukeren slar det pa. */
+    fetch('power.json').then(r=>r.json()).then(pw=>{ POW=pw; return loadSpot(); })
+      .then(()=>drawCompare()).catch(()=>{});
+  }).catch(()=>{ document.getElementById('tick').style.display='none'; });
+});
+
+/* senterpunkt = tyngdepunkt i største ring; [lng,lat] */
+function polyCenter(g){
+  if(!g||!g.coordinates) return null;
+  const rings = g.type==='Polygon' ? [g.coordinates[0]] : g.coordinates.map(p=>p[0]);
+  let best=null,bestA=-1;
+  for(const r of rings){
+    if(!r||r.length<3) continue;
+    let a=0,cx=0,cy=0;
+    for(let i=0,j=r.length-1;i<r.length;j=i++){
+      const f=r[j][0]*r[i][1]-r[i][0]*r[j][1];
+      a+=f; cx+=(r[j][0]+r[i][0])*f; cy+=(r[j][1]+r[i][1])*f;
+    }
+    a/=2;
+    const c = a===0 ? [r[0][0],r[0][1]] : [cx/(6*a),cy/(6*a)];
+    if(Math.abs(a)>bestA){ bestA=Math.abs(a); best=c; }
+  }
+  return best;
+}
+
+/* ---------- chips ---------- */
+function buildChips(){
+  const uc=document.getElementById('unitchips');
+  uc.onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+    unit=b.dataset.u; [...uc.children].forEach(c=>c.classList.toggle('on',c===b)); refresh();};
+  const mc=document.getElementById('metricchips');
+  mc.innerHTML=METRICS.map(m=>`<button class="chip ${m.k===metric?'on':''}" data-k="${m.k}">${m.l}</button>`).join('');
+  mc.onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+    metric=b.dataset.k; [...mc.children].forEach(c=>c.classList.toggle('on',c===b)); refresh();};
+
+  const group=(elId,key,prop,labelFn)=>{
+    const el=document.getElementById(elId);
+    const counts={}; D.fields.forEach(f=>{counts[f[prop]]=(counts[f[prop]]||0)+1;});
+    const vals=[...new Set(D.fields.map(f=>f[prop]))].filter(Boolean).sort((a,b)=>counts[b]-counts[a]);
+    el.innerHTML=`<button class="chip on" data-v="">Alle</button>`+
+      vals.map(v=>`<button class="chip" data-v="${v}">${labelFn(v)}<span class="n">${counts[v]}</span></button>`).join('');
+    el.onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+      F[key]=b.dataset.v||null; [...el.children].forEach(c=>c.classList.toggle('on',c===b)); refresh();};
+  };
+  group('cstatus','status','status',statN);
+  group('carea','area','area',areaN);
+  group('chc','hc','hcType',hcN);
+
+  const op=document.getElementById('cop');
+  const oc={}; D.fields.forEach(f=>{if(f.operator)oc[f.operator]=(oc[f.operator]||0)+1;});
+  const ops=Object.keys(oc).sort((a,b)=>oc[b]-oc[a]||a.localeCompare(b,'nb'));
+  op.innerHTML=`<option value="">Alle operatører (${ops.length})</option>`+
+    ops.map(o=>`<option value="${o.replace(/"/g,'&quot;')}">${tc(o)} — ${oc[o]} felt</option>`).join('');
+  op.onchange=()=>{F.op=op.value||null; refresh();};
+
+  document.getElementById('search').oninput=refresh;
+  document.getElementById('havland').onclick=e=>{const b=e.target.closest('.hlbtn'); if(b) setHL(b.dataset.hl);};
+  document.getElementById('omrchip').onclick=toggleOmr;
+  document.getElementById('csvbtn').onclick=()=>{ if(HL==='land') exportPowerCsv(); else exportFieldsCsv(); };
+}
+
+/* ---------- CSV-eksport (dataeksport-csv) ----------
+   Forsterker "åpne data"-budskapet: folk kan ta med seg tallene selv,
+   ikke bare se dem. Eksporterer nøyaktig det som vises i lista akkurat nå
+   (samme filter/søk/år/enhet/modus), med kildehenvisning i selve filen. */
+function csvCell(v){
+  const s=v==null?'':String(v);
+  return /[",;\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function downloadCsv(filename,rows){
+  const csv=rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});   // BOM: Excel leser UTF-8 riktig
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function exportFieldsCsv(){
+  if(!D) return;
+  const modus=cum?`kumulativt t.o.m. ${year}`:`i ${year}`;
+  const header=['Felt','Operatør','Type','Havområde','Status','År','Modus','Enhet',
+    'Olje','Gass','NGL','Kondensat','Sum o.e.'];
+  const enh=unit==='boe'?'fat / fat o.e.':'Sm³ / Sm³ o.e.';
+  const rows=filtered.map(f=>[tc(f.name),tc(f.operator),hcN(f.hcType),areaN(f.area),statN(f.status),
+    year,modus,enh,
+    val(f,year,'oil').toFixed(2),val(f,year,'gas').toFixed(2),
+    val(f,year,'ngl').toFixed(2),val(f,year,'con').toFixed(2),val(f,year,'oe').toFixed(2)]);
+  const meta=[
+    [`# Norsk sokkel - produksjon per felt, ${modus}. Enhet: ${enh}.`],
+    [`# Kilde: Sokkeldirektoratet (data.sodir.no). Uoffisiell eksport fra dette dashbordet, ${new Date().toISOString().slice(0,10)}.`],
+    [`# ${filtered.length} av ${D.fields.length} felt i gjeldende utvalg/søk.`],[]];
+  downloadCsv(`sokkeldata-felt-${year}-${cum?'kumulativt':'aar'}.csv`,[...meta,header,...rows]);
+}
+function exportPowerCsv(){
+  if(!POW) return;
+  const header=['Navn','Eier','Type','Fylke','Prisområde','Effekt (MW)','Årsproduksjon (GWh/år)'];
+  const rows=powFiltered().map(({p})=>[p.n,p.eier||'',p.k==='vann'?'Vannkraft':'Vindkraft',
+    p.fylke||'',p.omr||'',p.mw||'',p.gwh?p.gwh.toFixed(1):'']);
+  const meta=[
+    ['# Norsk sokkel - vann- og vindkraftanlegg.'],
+    [`# Kilde: NVE (anleggsregister, NLOD). Uoffisiell eksport fra dette dashbordet, ${new Date().toISOString().slice(0,10)}.`],
+    [`# ${rows.length} av ${POW.verk.length} anlegg i gjeldende utvalg/søk.`],[]];
+  downloadCsv('sokkeldata-kraftanlegg.csv',[...meta,header,...rows]);
+}
+function buildSlider(){
+  const s=document.getElementById('year');
+  s.min=YMIN;s.max=YMAX;s.step=1;s.value=year;
+  s.oninput=()=>{year=+s.value;stop();refresh();};
+  document.getElementById('play').onclick=()=>playing?stop():start();
+  const vm=document.getElementById('viewmode');
+  vm.onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+    cum=b.dataset.c==='1';
+    [...vm.children].forEach(c=>c.classList.toggle('on',c===b));
+    refresh();};
+}
+function start(){
+  if(year>=YMAX) year=YMIN;                       // står vi på slutten: start forfra
+  document.getElementById('play').textContent='❚❚';
+  document.getElementById('year').value=year; refresh();
+  playing=setInterval(()=>{
+    if(year>=YMAX){ stop(); return; }             // stopp på siste år, ikke loop
+    year++;
+    document.getElementById('year').value=year;
+    refresh();
+  },850);                                          // rolig nok til å følge rangeringen
+}
+function stop(){clearInterval(playing);playing=null;document.getElementById('play').textContent='▶';}
+
+/* ---------- kart ---------- */
+const val=(f,y,k=metric)=>cv((cum?f.c[k]:f.s[k])[y-YMIN]||0);
+const cv=v=>unit==='boe'?v*BOE:v;
+const radius=(v,max)=> v<=0?0 : 4+34*Math.pow(v/max,0.5);
+
+function buildMap(){
+  // norsk sokkel: Nordsjøen sør -> Barentshavet nord
+  const BOUNDS=[[-12,53.5],[45,84]];
+  map=new maplibregl.Map({
+    container:'map',
+    style:'https://tiles.openfreemap.org/styles/dark',
+    center:[8.0,65.5], zoom:4.0, minZoom:3.6, maxZoom:11,
+    maxBounds:BOUNDS,
+    attributionControl:{compact:true}
+  });
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+  map.addControl(new maplibregl.ScaleControl({unit:'metric'}),'bottom-right');
+  popup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:12});
+
+  map.on('load',()=>{
+    /* Bakgrunnskartet viser bynavn i hele Europa. Vi fjerner alle stedsnavn
+       under landsniva og tegner norske kystbyer selv, sa kartet holder fokus
+       pa norsk sokkel. Landnavn og havnavn beholdes. */
+    ['place_other','place_suburb','place_village','place_town',
+     'place_city','place_city_large','place_state'].forEach(id=>{
+       if(map.getLayer(id)) map.removeLayer(id);
+     });
+
+    map.addSource('ncs',   {type:'geojson',data:'ncs.geojson'});
+    map.addSource('polys',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    map.addSource('pts',  {type:'geojson',data:{type:'FeatureCollection',features:[]}});
+
+    /* Sokkelgrensen: sammenslått ytterkontur av SODIRs 41 delområder (lag 804).
+       Fire lag: svak innvendig tone, mykt skjær, stiplet strek, navn langs linja. */
+    map.addLayer({id:'ncs-fill',type:'fill',source:'ncs',
+      paint:{'fill-color':'#38bdf8','fill-opacity':0.045}});
+    map.addLayer({id:'ncs-glow',type:'line',source:'ncs',
+      paint:{'line-color':'#38bdf8','line-width':['interpolate',['linear'],['zoom'],3,6,8,16],
+             'line-opacity':0.13,'line-blur':['interpolate',['linear'],['zoom'],3,4,8,10],
+             'line-offset':['interpolate',['linear'],['zoom'],3,3,8,8]}});
+    map.addLayer({id:'ncs-line',type:'line',source:'ncs',
+      layout:{'line-cap':'butt','line-join':'round'},
+      paint:{'line-color':'#7dd3fc','line-width':['interpolate',['linear'],['zoom'],3,1.2,8,2],
+             'line-opacity':0.75,'line-dasharray':[4,3]}});
+
+    map.addLayer({id:'poly-fill',type:'fill',source:'polys',
+      /* Dempes gradvis fra zoom 7 og oppover: i tette klynger (Tampen mfl.)
+         tar boblene/etikettene over som primaer visning, sa feltomrisset
+         trenger ikke lenger konkurrere om oppmerksomheten.
+         MERK: zoom-uttrykk (interpolate) ma vaere PA TOPPNIVA - "case" kan
+         ikke pakke inn en interpolate. Derfor case'en flyttet inn i hvert
+         interpolate-stopp i stedet (validert mot map.on('error') under bygging). */
+      paint:{'fill-color':['get','color'],
+             'fill-opacity':['interpolate',['linear'],['zoom'],
+               4, ['case',['get','sel'],0.30,0.10],
+               7, ['case',['get','sel'],0.30,0.10],
+               10,['case',['get','sel'],0.30,0.04]]}});
+    /* Tilgjengelighet: rod/gronn (gass/olje) er det vanskeligste paret ved
+       rod-gronn fargeblindhet. Strekmonster gir et andre, fargeuavhengig
+       skille - heltrukket=olje/annet, stiplet=gass, prikket=blanding,
+       strek-prikk=kondensat.
+       MERK: line-dasharray er en "paint"-egenskap uten stotte for data-uttrykk
+       (['get',...]) i MapLibre - kun faste verdier per lag. Derfor MA hver
+       stiplet variant vaere et eget lag med et filter, ikke ett lag med
+       match-uttrykk (det feiler stille, addLayer kaster ingen JS-feil). */
+    const DASH_BY_HC={'GAS':[2,1.6],'OIL/GAS':[1,1.4],'GAS/CONDENSATE':[3,1.2,1,1.2]};
+    const polyLinePaint=(extra)=>Object.assign({
+      'line-color':['get','color'],'line-width':['case',['get','sel'],2,0.7],
+      'line-opacity':['interpolate',['linear'],['zoom'],
+        4, ['case',['get','sel'],0.95,0.45],
+        7, ['case',['get','sel'],0.95,0.45],
+        10,['case',['get','sel'],0.95,0.25]]},extra||{});
+    map.addLayer({id:'poly-line',type:'line',source:'polys',
+      filter:['!',['in',['get','hc'],['literal',Object.keys(DASH_BY_HC)]]],
+      paint:polyLinePaint()});
+    map.addLayer({id:'poly-line-gas',type:'line',source:'polys',
+      filter:['==',['get','hc'],'GAS'],
+      paint:polyLinePaint({'line-dasharray':DASH_BY_HC.GAS})});
+    map.addLayer({id:'poly-line-both',type:'line',source:'polys',
+      filter:['==',['get','hc'],'OIL/GAS'],
+      paint:polyLinePaint({'line-dasharray':DASH_BY_HC['OIL/GAS']})});
+    map.addLayer({id:'poly-line-con',type:'line',source:'polys',
+      filter:['==',['get','hc'],'GAS/CONDENSATE'],
+      paint:polyLinePaint({'line-dasharray':DASH_BY_HC['GAS/CONDENSATE']})});
+
+    const zr = ['interpolate',['linear'],['zoom'],
+      3, ['*',['get','r'],0.55],
+      5, ['*',['get','r'],1.0],
+      8, ['*',['get','r'],1.8],
+      11,['*',['get','r'],2.6]];
+    map.addLayer({id:'bub',type:'circle',source:'pts',
+      paint:{'circle-radius':zr,'circle-color':['get','color'],
+             'circle-opacity':['case',['get','sel'],0.62,['get','zero'],0.10,0.32],
+             'circle-stroke-color':['case',['get','sel'],'#ffffff',['get','color']],
+             'circle-stroke-width':['case',['get','sel'],2.6,['get','zero'],1,1.5],
+             'circle-stroke-opacity':['case',['get','sel'],1,['get','zero'],0.5,0.9]}});
+
+    /* Innretningsikoner: reintrodusert med enklere silhuetter (se sesjonslogg).
+       Kun ved naer innzoom (7.2+), og litt mindre/dempet enn boblene sjol,
+       sa de ikke konkurrerer visuelt med bobler+etiketter i tette klynger
+       som Tampen (Statfjord/Gullfaks/Snorre/Visund). */
+    if(SHOW_FAC) loadFacIcons().then(()=>{
+      if(map.getLayer('fac')) return;
+      map.addLayer({id:'fac',type:'symbol',source:'pts',
+        minzoom:7.2,
+        layout:{'icon-image':['concat','fac-',['get','fac']],
+                'icon-size':['interpolate',['linear'],['zoom'],7.2,0.42,9,0.62,11,0.82],
+                'icon-allow-overlap':true,'icon-ignore-placement':true},
+        paint:{'icon-opacity':['case',['get','sel'],1,0.75]}},'lbl');
+    }).catch(()=>{});
+
+    /* Norske kystbyer (SSB tettsteder >= 5000, kystnaere). Tegnes under
+       feltetikettene sa feltnavn alltid vinner ved kollisjon. */
+    map.addSource('cities',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    fetch('cities.json').then(r=>r.json()).then(cj=>{
+      const feats=cj.cities.map(c=>({type:'Feature',
+        geometry:{type:'Point',coordinates:c.c},
+        properties:{name:c.n,pop:c.p,
+          rank:-c.p,                                     // storst by plasseres forst
+          min:c.p>=100000?3.6:c.p>=30000?5.4:c.p>=12000?6.6:7.6}}));
+      if(map.getSource('cities')) map.getSource('cities').setData(
+        {type:'FeatureCollection',features:feats});
+    }).catch(()=>{});
+
+    map.addLayer({id:'city-dot',type:'circle',source:'cities',
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],
+               4,['case',['>',['get','pop'],100000],2.4,1.4],
+               9,['case',['>',['get','pop'],100000],4.2,2.6]],
+             'circle-color':'#94a3b8','circle-opacity':0.7,
+             'circle-stroke-color':'#0f172a','circle-stroke-width':0.8}});
+    map.addLayer({id:'city-lbl',type:'symbol',source:'cities',
+      layout:{'text-field':['get','name'],
+              'text-font':['Noto Sans Regular'],
+              'text-size':['interpolate',['linear'],['zoom'],
+                 4,['case',['>',['get','pop'],100000],10.5,9],
+                 9,['case',['>',['get','pop'],100000],13,11]],
+              'text-anchor':'left','text-offset':[0.55,0],
+              'text-allow-overlap':false,'text-padding':2.5,
+              'symbol-sort-key':['get','rank']},   // storste by forst -> vinner plass
+      paint:{'text-color':'#8fa3bb','text-halo-color':'#0f172a','text-halo-width':1.6}});
+
+    map.addLayer({id:'lbl',type:'symbol',source:'pts',
+      layout:{'text-field':['get','name'],
+              'text-size':['interpolate',['linear'],['zoom'],4,9.5,6,11,8,12.5,11,14],
+              'text-font':['Noto Sans Regular'],
+              'text-variable-anchor':['top','bottom','left','right','top-left','top-right','bottom-left','bottom-right'],
+              'text-radial-offset':['get','off'],
+              'text-justify':'auto',
+              'text-allow-overlap':false,
+              'text-padding':1.5,
+              'symbol-sort-key':['get','rank']},
+      paint:{'text-color':['case',['get','sel'],'#ffffff',['get','zero'],'#8092a8','#cbd5e1'],
+             'text-halo-color':'#0f172a','text-halo-width':1.8}});
+
+    /* Navn langs grensa. Lagt til etter feltnavnene, så feltene vinner ved kollisjon. */
+    map.addLayer({id:'ncs-label',type:'symbol',source:'ncs',
+      layout:{'symbol-placement':'line','text-field':'NORSK KONTINENTALSOKKEL',
+              'text-font':['Noto Sans Regular'],
+              'text-size':['interpolate',['linear'],['zoom'],3,9,6,10.5,9,11.5],
+              'text-letter-spacing':0.26,'symbol-spacing':420,
+              'text-offset':[0,-0.9],'text-max-angle':28,'text-padding':4},
+      paint:{'text-color':'#7dd3fc','text-opacity':0.72,
+             'text-halo-color':'#0f172a','text-halo-width':2.2}});
+
+    /* ÉN klikk-handler for hele kartet. Tidligere hadde bade 'bub' og
+       'poly-fill' hver sin handler, og traff du begge samtidig ble select()
+       kalt to ganger - feltet ble valgt og umiddelbart avvalgt igjen.
+       Vi soker ogsa i en liten boks rundt punktet, sa naertreff teller.
+       Kraftanlegg sjekkes i samme handler, av samme grunn - ikke egen
+       klikk-lytter per lag. */
+    const TREFF=8;   // piksler
+    /* Samme brytningspunkter som 'zr' over (circle-radius for 'bub'-laget),
+       sa vi kan regne ut faktisk skjermradius for en boble ved gjeldende zoom.
+       Trengs for a lose Breidablikk/Hyme-buggen: en liten boble helt inntil
+       et stort nabofelt (Ringhorne Ost/Bauge) ble alltid overkjort av
+       nabobobla fordi "naermeste senter til klikk" vant - selv nar klikket
+       var solid inne i den lille bobla. Na sjekker vi forst om klikket
+       faktisk ligger INNI en bobles egen radius, og velger da den minste
+       av dem (den ligger "ovenpa" visuelt sett). */
+    function bubRadiusPx(rVal,zoom){
+      const pts=[[3,0.55],[5,1.0],[8,1.8],[11,2.6]];
+      let f=pts[pts.length-1][1];
+      for(let i=0;i<pts.length-1;i++){
+        const [z0,s0]=pts[i],[z1,s1]=pts[i+1];
+        if(zoom<=pts[0][0]){ f=pts[0][1]; break; }
+        if(zoom>=z0&&zoom<=z1){ f=s0+(s1-s0)*(zoom-z0)/(z1-z0); break; }
+      }
+      return rVal*f;
+    }
+    map.on('click',e=>{
+      const lag=['bub','poly-fill'].filter(L=>map.getLayer(L));
+      const {x,y}=e.point;
+      const boks=[[x-TREFF,y-TREFF],[x+TREFF,y+TREFF]];
+      if(lag.length){
+        // boblene har forrang: de er sma og presise, polygonene store
+        let tr=map.queryRenderedFeatures(boks,{layers:lag.filter(L=>L==='bub')});
+        if(!tr.length) tr=map.queryRenderedFeatures(e.point,{layers:lag.filter(L=>L==='poly-fill')});
+        if(!tr.length) tr=map.queryRenderedFeatures(boks,{layers:lag});
+        if(tr.length){
+          const zoom=map.getZoom();
+          let best=null,bd=Infinity,bestInside=null,bestInsideR=Infinity;
+          for(const f of tr){
+            if(f.geometry.type!=='Point') continue;
+            const q=map.project(f.geometry.coordinates);
+            const d=Math.hypot(q.x-x,q.y-y);
+            if(d<bd){bd=d;best=f;}
+            // ligger klikket faktisk inni denne bobla? Da vinner minste bobla.
+            const rPx=bubRadiusPx(+f.properties.r||0,zoom);
+            if(d<=rPx && rPx<bestInsideR){ bestInsideR=rPx; bestInside=f; }
+          }
+          select(((bestInside||best)||tr[0]).properties.id);
+          return;
+        }
+      }
+      if(powOn){
+        const plag=PWR_LAG.filter(L=>map.getLayer(L)&&map.getLayoutProperty(L,'visibility')!=='none');
+        const pr=map.queryRenderedFeatures(boks,{layers:plag});
+        if(pr.length){
+          let best=null,bd=Infinity;
+          for(const f of pr){
+            const q=map.project(f.geometry.coordinates);
+            const d=(q.x-x)**2+(q.y-y)**2;
+            if(d<bd){bd=d;best=f;}
+          }
+          selectPower(best.properties.rank);
+          return;
+        }
+      }
+      if(selected||selectedPower){          // tomt hav = ga ut av feltvisningen
+        selected=null; selectedPower=null; popup.remove();
+        drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+      }
+    });
+    ['bub','poly-fill'].forEach(L=>{
+      map.on('mouseenter',L,()=>map.getCanvas().style.cursor='pointer');
+      map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';popup.remove();});
+    });
+    map.on('mousemove','bub',e=>{
+      const p=e.features[0].properties;
+      const fl=FAC_LABEL[p.fac];
+      const n=+p.nfac||0;
+      popup.setLngLat(e.lngLat).setHTML(
+        `<b>${p.name}</b><br><span style="color:#94a3b8">${fmt(+p.v,+p.v<10?1:0)} ${uLabel(metric)}</span>
+         <br><span style="color:#64748b;font-size:11px">${p.op} · ${hcN(p.hc)}</span>
+         ${fl?`<br><span style="color:#7dd3fc;font-size:11px">${fl}${n>1?` · ${n} innretninger`:''}</span>`:''}`)
+        .addTo(map);
+    });
+    mapReady=true; refresh(); fitToFields();
+    restoreUrlSelection();      // valgt felt/kraftanlegg/Hav-Land/prisomrader fra delt lenke
+  });
+}
+
+function fitToFields(){
+  const pts=D.fields.filter(f=>f.center).map(f=>f.center);
+  if(!pts.length) return;
+  const b=pts.reduce((a,c)=>[[Math.min(a[0][0],c[0]),Math.min(a[0][1],c[1])],
+                             [Math.max(a[1][0],c[0]),Math.max(a[1][1],c[1])]],
+                     [[180,90],[-180,-90]]);
+  map.fitBounds(b,{padding:{top:50,bottom:110,left:50,right:60},duration:0});
+}
+
+function drawMap(){
+  if(!mapReady) return;
+  const max=Math.max(...filtered.map(f=>val(f,year)),1e-9);
+  const withGeom=filtered.filter(f=>f.center);
+  /* Ta med ALLE felt med geometri, ogsa de uten produksjon i valgt ar.
+     Ellers far nedstengte felt som Jotun verken boble eller navn i kartet. */
+  const ranked=[...withGeom].sort((a,b)=>val(b,year)-val(a,year));
+  const bigSet=new Set(ranked.slice(0,14).map(f=>f.id));
+
+  map.getSource('polys').setData({type:'FeatureCollection',
+    features: withGeom.map(f=>({type:'Feature',geometry:f.feature.geometry,
+      properties:{id:f.id,color:hcC(f.hcType),hc:f.hcType,sel:selected===f.id}}))});
+
+  map.getSource('pts').setData({type:'FeatureCollection',
+    features: ranked.map((f,ix)=>{const v=val(f,year), rr=radius(v,max);return{
+      type:'Feature',geometry:{type:'Point',coordinates:f.center},
+      properties:{id:f.id,name:tc(f.name),op:tc(f.operator),hc:f.hcType,
+        color:hcC(f.hcType),v:+v.toFixed(3),r:v>0?rr:3.2,
+        zero:v<=0,                          // ingen produksjon i valgt ar
+        rank:ix,                            // 0 = størst → plasseres først ved kollisjon
+        off:+((( v>0?rr:3.2)+5)/11).toFixed(2),
+        fac:(FAC[f.id]&&FAC[f.id].k)||'subsea',
+        nfac:(FAC[f.id]&&FAC[f.id].count)||0,
+        sel:selected===f.id,big:bigSet.has(f.id)}};})});
+
+  drawLegend(max);
+}
+
+function drawLegend(max){
+  const m=METRICS.find(x=>x.k===metric);
+  /* Tre navngitte klasser i stedet for tre nakne sirkler - det var ikke tydelig
+     at de representerte storrelse. Diameteren er begrenset sa den ikke flyter
+     ut av panelet ved store verdier. */
+  const kl=[{v:max,l:'Stor',d:24},{v:max/4,l:'Middels',d:14},{v:max/16,l:'Liten',d:7}]
+    .filter(x=>x.v>0.0001);
+  document.getElementById('legend').innerHTML=
+    `<b>${m.l} · ${cum?`kumulativt t.o.m. ${year}`:year}</b>
+     <button id="lg-lukk" title="Skjul forklaring" aria-label="Skjul forklaring">−</button>
+     <div class="lg-body">
+     <div class="lg-h">Boblestørrelsen viser hvor mye feltet produserer</div>
+     ${kl.map(x=>`<div class="lg-sz"><span class="cw"><i style="width:${x.d}px;height:${x.d}px"></i></span>
+        <span class="kl">${x.l}</span>
+        <span class="vv">${fmt(x.v,x.v<10?1:0)}</span></div>`).join('')}
+     <div class="lg-u">${uLabel(metric)}</div>
+     <div class="lg-sep"></div>
+     <div class="lg-h">Fargen viser hva feltet produserer</div>
+     ${Object.keys(HC).map(t=>`<div class="lg-row"><span class="dot" style="background:${HC[t]}"></span>${HCN[t]}</div>`).join('')}
+     <div class="lg-h" style="margin-top:6px" title="Feltomrisset har ogsa et eget strekmonster per type, uavhengig av farge - nyttig ved rod-gronn fargeblindhet.">Omrisset har eget strekmønster per type (uavhengig av farge)</div>
+     <div class="lg-row lg-ncs" title="Sammenslått ytterkontur av Sokkeldirektoratets 41 delområder. Følger avtalte delelinjer mot Storbritannia, Danmark og Russland i sør og øst.">
+       <span class="dash"></span>Yttergrense norsk sokkel</div></div>`;
+  const el=document.getElementById('legend');
+  const kn=document.getElementById('lg-lukk');
+  el.classList.toggle('mini',lgMini);
+  kn.textContent=lgMini?'+':'−';
+  kn.title=lgMini?'Vis forklaring':'Skjul forklaring';
+  kn.onclick=()=>{
+    lgMini=!lgMini; el.classList.toggle('mini',lgMini);
+    kn.textContent=lgMini?'+':'−';
+    kn.title=lgMini?'Vis forklaring':'Skjul forklaring';
+  };
+}
+let lgMini=true;   // sammenlagt som standard - la ellers over sorlige Nordsjoen
+
+function select(id){
+  selected = selected===id ? null : String(id);
+  if(selected){
+    selectedPower=null;    // felt og kraftanlegg deler samme detaljpanel
+    const f=D.fields.find(x=>x.id===selected);
+    if(f&&f.center) map.flyTo({center:f.center,zoom:Math.max(map.getZoom(),6.6),duration:700});
+    setTimeout(()=>{const r=document.querySelector(`.row[data-id="${selected}"]`);
+      if(r) r.scrollIntoView({block:'nearest'});},30);
+  }
+  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+}
+
+/* Samme monster som select(), men for kraftanlegg (vann/vind pa land).
+   rank er indeksen i POW.verk - stabil sa lenge power.json ikke bygges pa nytt. */
+function selectPower(rank){
+  selectedPower = selectedPower===rank ? null : rank;
+  if(selectedPower!=null){
+    selected=null;
+    const p=POW.verk[selectedPower];
+    if(p&&p.c) map.flyTo({center:p.c,zoom:Math.max(map.getZoom(),8),duration:700});
+  }
+  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+}
+
+/* ---------- liste ---------- */
+/* Kraftverk-utvalg for Land-modus - samme sok-felt som feltlisten, men matcher
+   navn/eier i POW.verk i stedet. Ingen operatoer-/status-/omrade-filtre enna
+   for kraftverk (POW har ikke samme kategoriene), sok-feltet er nok til a
+   finne et anlegg blant 1300+. */
+function powFiltered(){
+  if(!POW) return [];
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  return POW.verk.map((p,rank)=>({p,rank}))
+    .filter(({p})=>!q||p.n.toLowerCase().includes(q)||(p.eier||'').toLowerCase().includes(q));
+}
+function drawList(){
+  if(HL==='land'){ drawListLand(); return; }
+  const m=METRICS.find(x=>x.k===metric);
+  const rows=filtered.map(f=>({f,v:val(f,year)})).sort((a,b)=>b.v-a.v);
+  const max=rows.length?Math.max(rows[0].v,1e-9):1;
+  document.getElementById('listtitle').innerHTML=
+    `${rows.length} felt · ${m.l} ${cum?`kumulativt t.o.m. ${year}`:year}
+     <span class="enh">${uLabel(metric)}</span>`;
+  document.getElementById('list').innerHTML = rows.length ? rows.map((r,i)=>`
+    <div class="row ${selected===r.f.id?'sel':''}" data-id="${r.f.id}"
+      tabindex="0" role="button" aria-pressed="${selected===r.f.id}"
+      aria-label="${tc(r.f.name)}, ${tc(r.f.operator)}, ${r.v>0?fmt(r.v,r.v<10?1:0)+' '+uLabel(metric):'ingen produksjon'}">
+      <div class="bar" style="width:${r.v>0?(r.v/max*100):0}%"></div>
+      <div class="rk">${r.v>0?i+1:'–'}</div>
+      <div class="nm"><span class="dot" style="background:${hcC(r.f.hcType)}"></span>${tc(r.f.name)}
+        <small>${tc(r.f.operator)}</small></div>
+      <div class="vl">${r.v>0?fmt(r.v,r.v<10?1:0):'–'}</div>
+    </div>`).join('') : '<div class="empty">Ingen felt matcher filteret</div>';
+  document.getElementById('list').onclick=e=>{const r=e.target.closest('.row'); if(r) select(r.dataset.id);};
+  document.getElementById('list').onkeydown=e=>{
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    const r=e.target.closest('.row'); if(!r) return;
+    e.preventDefault(); select(r.dataset.id);
+  };
+}
+function drawListLand(){
+  const rows=powFiltered().sort((a,b)=>b.p.mw-a.p.mw);
+  const max=rows.length?Math.max(rows[0].p.mw,1e-9):1;
+  document.getElementById('listtitle').innerHTML=
+    `${rows.length} kraftanlegg · installert effekt <span class="enh">MW</span>`;
+  document.getElementById('list').innerHTML = rows.length ? rows.map((r,i)=>`
+    <div class="row ${selectedPower===r.rank?'sel':''}" data-rank="${r.rank}"
+      tabindex="0" role="button" aria-pressed="${selectedPower===r.rank}"
+      aria-label="${r.p.n}, ${r.p.eier||'ukjent eier'}, ${fmt(r.p.mw,r.p.mw<10?1:0)} MW">
+      <div class="bar" style="width:${r.p.mw/max*100}%"></div>
+      <div class="rk">${i+1}</div>
+      <div class="nm"><span class="dot" style="background:${POWC[r.p.k]}"></span>${r.p.n}
+        <small>${r.p.eier||''}</small></div>
+      <div class="vl">${fmt(r.p.mw,r.p.mw<10?1:0)}</div>
+    </div>`).join('') : '<div class="empty">Ingen kraftanlegg matcher søket</div>';
+  document.getElementById('list').onclick=e=>{const r=e.target.closest('.row'); if(r) selectPower(+r.dataset.rank);};
+  document.getElementById('list').onkeydown=e=>{
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    const r=e.target.closest('.row'); if(!r) return;
+    e.preventDefault(); selectPower(+r.dataset.rank);
+  };
+}
+
+/* ---------- KPI ---------- */
+function drawKpis(){
+  if(HL==='land'){ drawKpisLand(); return; }
+  const i=year-YMIN;
+  const sel=selected?D.fields.find(f=>f.id===selected):null;
+  const scope=sel?[sel]:filtered;                 // valgt felt overstyrer utvalget
+  const sum=k=>cv(scope.reduce((a,f)=>a+(cum?f.c[k]:f.s[k])[i],0));
+  const prv=k=>year>YMIN?cv(scope.reduce((a,f)=>a+(cum?f.c[k]:f.s[k])[i-1],0)):null;
+  const active=filtered.filter(f=>f.s.oe[i]>0).length;
+  const kpi=(k,l,d=1)=>{const v=sum(k),p=prv(k),ch=p?(v-p)/p*100:null;
+    const c=ch==null?'var(--tx3)':ch>=0?'var(--oil)':'var(--gas)';
+    return `<div class="kpi"><div class="k">${l}</div><div class="v">${fmt(v,d)}</div>
+      <div class="u">${uLabel(k)}${ch!=null&&!cum?` · <span style="color:${c}">${ch>=0?'+':''}${ch.toFixed(0)}%</span>`:''}</div></div>`;};
+  document.getElementById('kpititle').textContent=sel?tc(sel.name):'Utvalg';
+  document.getElementById('kpiscope').textContent = sel
+    ? `${cum?`Kumulativt t.o.m. ${year}`:year} · ${tc(sel.operator)} · ${statN(sel.status)}`
+    : `${cum?`Kumulativt t.o.m. ${year}`:year} · ${filtered.length} i utvalg · ${active} i drift`;
+  document.getElementById('kpis').innerHTML=kpi('oe','Totalt',cum?0:1)+
+    kpi('oil','Olje',cum?0:1)+kpi('gas','Gass',cum?0:1);
+  document.getElementById('kpinote').innerHTML = cum
+    ? `<b>Kumulativt</b> ${YMIN}–${year}${sel?` for ${tc(sel.name)}`:''}. Bruk ▶ for å se oppbyggingen år for år.`
+    : (year===D.meta.partialYear
+      ? `<b>Merk:</b> ${year} er ufullstendig — data t.o.m. ${String(D.meta.lastDataMonth).padStart(2,'0')}/${year}.`
+      : `Prosentendring mot ${year-1}${sel?` for ${tc(sel.name)}`:''}.`);
+}
+/* Kraftverk har ingen ar-for-ar-serie (NVE gir kun midlere arsproduksjon),
+   sa KPI-kortet for Land viser bestand na (MW/GWh), ikke en tidsserie. */
+function drawKpisLand(){
+  if(!POW){ document.getElementById('kpis').innerHTML='<div class="empty">Laster …</div>'; return; }
+  const p=selectedPower!=null?POW.verk[selectedPower]:null;
+  const scope=p?[p]:powFiltered().map(r=>r.p);
+  const sumK=(k,pred)=>scope.filter(pred||(()=>true)).reduce((a,x)=>a+(x[k]||0),0);
+  document.getElementById('kpititle').textContent=p?p.n:'Utvalg';
+  document.getElementById('kpiscope').textContent=p
+    ? `${p.eier||''} · ${p.k==='vann'?'Vannkraft':'Vindkraft'}`
+    : `${scope.length} kraftanlegg · installert effekt`;
+  const kpi=(l,v,u,tip)=>`<div class="kpi"${tip?` title="${tip}"`:''}><div class="k">${l}</div><div class="v">${fmt(v,v<10?1:0)}</div><div class="u">${u}</div></div>`;
+  /* Tredje kortet var "Vannkraft: MW" - for et ENKELT valgt anlegg er det
+     alltid identisk med "Effekt" (samme anlegg, samme tall), eller 0 hvis
+     vindkraft. Vis i stedet kapasitetsfaktor (faktisk snittproduksjon delt
+     pa teoretisk maks ved full effekt hele aret) nar et anlegg er valgt -
+     relevant for bade vann og vind, og aldri redundant. */
+  const third = p
+    ? kpi('Kapasitetsfaktor', p.mw>0 ? p.gwh*1000/(p.mw*8760)*100 : 0,'%',
+        'Hvor stor andel av full effekt anlegget i snitt produserer over et år - årsproduksjon delt på hva det hadde gitt om det gikk for full effekt alle årets timer. Vannkraft reguleres bevisst (magasin), vindkraft følger vinden - begge er derfor godt under 100 %.')
+    : kpi('Vannkraft',sumK('mw',x=>x.k==='vann'),'MW');
+  document.getElementById('kpis').innerHTML =
+    kpi('Effekt',sumK('mw'),'MW') +
+    kpi('Årsproduksjon',sumK('gwh'),'GWh/år') +
+    third;
+  document.getElementById('kpinote').innerHTML = p
+    ? `Idriftsatt ${p.aar||'ukjent år'} · ${p.fylke||''}${p.omr?` · ${p.omr}`:''}<br>
+       <b>Kapasitetsfaktor</b> er årsproduksjonen delt på det anlegget maksimalt kunne produsert
+       ved full effekt alle årets 8&nbsp;760 timer. Et vannkraftverk styrer bevisst ned mot
+       tørre perioder eller lav etterspørsel, og et vindkraftverk følger vinden — derfor ligger
+       begge normalt et sted mellom 25–45 %, ikke nær 100 %.`
+    : `Installert effekt og NVEs midlere årsproduksjon (1991–2020) for anleggene i utvalget. Ingen år-for-år-historikk finnes hos NVE per anlegg.`;
+}
+
+/* ---------- grafer ---------- */
+const AX={axisLine:{lineStyle:{color:'#334155'}},axisLabel:{color:'#64748b',fontSize:10},
+  splitLine:{lineStyle:{color:'#1e293b'}},axisTick:{show:false}};
+const BASE={backgroundColor:'transparent',
+  tooltip:{trigger:'axis',backgroundColor:'rgba(15,23,42,.97)',borderColor:'#334155',
+    textStyle:{color:'#f7f5f2',fontSize:11},axisPointer:{type:'shadow'}},
+  legend:{top:0,textStyle:{color:'#94a3b8',fontSize:10},itemWidth:9,itemHeight:9,icon:'roundRect'}};
+const yrs=()=>Array.from({length:YMAX-YMIN+1},(_,i)=>YMIN+i);
+/* Ved valgt felt: vis kun feltets egne produksjonsar (+1 ars margin for),
+   ikke hele 1971-tallrekken. Et felt som Johan Sverdrup (2019-) far ellers
+   40+ ar med tom flate forst i grafen, som bare skjuler formen pa kurven. */
+function fieldYrs(f){
+  if(!f||!f.firstYear) return yrs();
+  const y0=Math.max(YMIN,f.firstYear-1), y1=Math.min(YMAX,f.lastYear||YMAX);
+  return Array.from({length:y1-y0+1},(_,i)=>y0+i);
+}
+const PAL=['#38bdf8','#34d399','#fbbf24','#f87171','#c084fc','#2dd4bf','#fb923c','#818cf8'];
+const TYPEC={oil:'#34d399',gas:'#f87171',ngl:'#38bdf8',con:'#c084fc'};
+
+function area(name,data,color){return{name,type:'line',stack:'s',areaStyle:{opacity:.62},
+  symbol:'none',lineStyle:{width:0},data,color};}
+
+function drawTs(){
+  if(HL==='land'){ drawTsLand(); return; }
+  const m=METRICS.find(x=>x.k===metric);
+  const S=f=>cum?f.c:f.s;                  // følger Per år / Kumulativt
+  const C=v=>+cv(v).toFixed(3);            // følger fat / Sm³
+  let series, scope, cyrs=yrs();
+  if(tsMode==='verdi'){
+    /* Anslått verdi = revenue() (parts i mill NOK) omregnet til mrd kr for lesbarhet.
+       Bruker feltenes egne olje/gass/ngl/kondensat-serier x SODIRs pris- og valutaserie
+       (helt tilbake til 1960 - se prices.json), samme beregning som inntektstelleren. */
+    const flds = selected ? [D.fields.find(x=>x.id===selected)] : filtered;
+    if(selected) cyrs=fieldYrs(flds[0]);
+    scope = selected ? `${tc(flds[0].name)} — anslått verdi, fordelt på produkt`
+                      : `${filtered.length} felt i utvalget — anslått verdi, fordelt på produkt`;
+    const perYear = cyrs.map(y=>revenue(flds,y));
+    const toMrd=v=>+((v||0)/1000).toFixed(2);
+    if(cum){
+      series=['oil','gas','ngl','con'].map(k=>{
+        let acc=0;
+        const data=perYear.map(r=>{acc+=(r?r.parts[k]:0); return toMrd(acc);});
+        return area(METRICS.find(x=>x.k===k).l,data,TYPEC[k]);
+      });
+    }else{
+      series=['oil','gas','ngl','con'].map(k=>area(METRICS.find(x=>x.k===k).l,
+        perYear.map(r=>toMrd(r&&r.parts[k])),TYPEC[k]));
+    }
+  }else if(selected){
+    const f=D.fields.find(x=>x.id===selected);
+    cyrs=fieldYrs(f);
+    scope=`${tc(f.name)} — fordelt på produkt`;
+    series=['oil','gas','ngl','con'].map(k=>area(METRICS.find(x=>x.k===k).l,
+      cyrs.map(y=>C(S(f)[k][y-YMIN])),TYPEC[k]));
+  }else if(tsMode==='type'){
+    scope=`${filtered.length} felt i utvalget — fordelt på produkt`;
+    series=['oil','gas','ngl','con'].map(k=>area(METRICS.find(x=>x.k===k).l,
+      yrs().map((_,i)=>C(filtered.reduce((a,f)=>a+S(f)[k][i],0))),TYPEC[k]));
+  }else if(tsMode==='area'){
+    const as=[...new Set(filtered.map(f=>f.area))].filter(Boolean);
+    scope=`${filtered.length} felt i utvalget — ${m.l}, fordelt på havområde`;
+    series=as.map((a,ix)=>area(areaN(a),
+      yrs().map((_,i)=>C(filtered.filter(f=>f.area===a).reduce((s,f)=>s+S(f)[metric][i],0))),PAL[ix%PAL.length]));
+  }else{
+    const top=[...filtered].sort((a,b)=>b.totalOe-a.totalOe).slice(0,8);
+    scope=`${filtered.length} felt i utvalget — ${m.l}, 8 største felt + øvrige`;
+    series=top.map((f,ix)=>area(tc(f.name),S(f)[metric].map(C),PAL[ix%PAL.length]));
+    series.push(area('Øvrige',yrs().map((_,i)=>
+      C(filtered.filter(f=>!top.includes(f)).reduce((s,f)=>s+S(f)[metric][i],0))),'#475569'));
+  }
+  document.getElementById('tsscope').textContent=
+    `${cum?'Kumulativt':'Per år'} · ${scope}`;
+  /* Stiplet linje for valgt år. Ingen etikett-boks lenger - den fløt oppa
+     kurven og "hoppet" rundt for hvert nytt år under avspilling, noe som
+     virket rotete. Aret vises allerede i inputfeltet og feltdetaljer, sa
+     en enkel, stille linje er nok her. Tegnes kun nar aret faktisk er
+     innenfor det viste omradet (relevant nar et felt er valgt og grafen
+     er klippet til feltets egne produksjonsar). */
+  if(cyrs.includes(year)){
+    series[0]={...series[0],markLine:{silent:true,symbol:'none',
+      label:{show:false},                // echarts viser ellers arstallet ved linjen som default,
+                                          // og det stakk inn i produkt-legenden over grafen
+      lineStyle:{color:'#f7f5f2',width:1,type:'dashed',opacity:.4},
+      data:[{xAxis:String(year)}]}};
+  }
+
+  tsChart.setOption({...BASE,
+    animation:false,                    // unngar at linjen "glir" og krasjer med neste tegning under avspilling
+    grid:{left:46,right:14,top:26,bottom:34},
+    xAxis:{type:'category',data:cyrs,boundaryGap:false,...AX},
+    yAxis:{type:'value',name:tsMode==='verdi'?'mrd kr':uLabel((selected||tsMode==='type')?'oe':metric),nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
+    series,
+    dataZoom:[{type:'inside'},{type:'slider',height:13,bottom:4,borderColor:'#334155',
+      fillerColor:'rgba(56,189,248,.13)',handleStyle:{color:'#38bdf8'},
+      textStyle:{color:'#64748b',fontSize:9},moveHandleSize:3,
+      dataBackground:{lineStyle:{color:'#334155'},areaStyle:{color:'#1e293b'}}}]
+  },true);
+}
+/* Kraftverk har ingen ar-for-ar-serie, sa "Produksjon over tid" blir i Land-modus
+   i stedet en fordeling av arsproduksjonen (GWh) pa de fem prisomradene, vann og
+   vind hver for seg. Regnes ut pa nytt fra det gjeldende soket (powFiltered),
+   ikke fra POW.omrader-totalen, sa grafen følger samme utvalg som lista/KPI. */
+function drawTsLand(){
+  const rows=powFiltered().map(r=>r.p);
+  const areas=['NO1','NO2','NO3','NO4','NO5'].filter(o=>rows.some(p=>p.omr===o));
+  const sum=(o,k)=>rows.filter(p=>p.omr===o&&p.k===k).reduce((a,p)=>a+(p.gwh||0),0);
+  document.getElementById('tsscope').textContent=
+    `${rows.length} kraftanlegg i utvalget — årsproduksjon fordelt på prisområde`;
+  tsChart.setOption({...BASE,
+    animation:false,
+    grid:{left:46,right:14,top:26,bottom:34},
+    xAxis:{type:'category',data:areas.map(o=>`${o} · ${OMRN[o]||''}`),...AX},
+    yAxis:{type:'value',name:'GWh/år',nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
+    series:[
+      {name:'Vannkraft',type:'bar',stack:'s',color:POWC.vann,
+        data:areas.map(o=>+sum(o,'vann').toFixed(0))},
+      {name:'Vindkraft',type:'bar',stack:'s',color:POWC.vind,
+        data:areas.map(o=>+sum(o,'vind').toFixed(0))}],
+    tooltip:{...BASE.tooltip,trigger:'axis',formatter:ps=>
+      `${ps[0].name}<br>${ps.map(p=>`${p.marker}${p.seriesName}: <b>${fmt(p.value,0)}</b> GWh/år`).join('<br>')}`}
+  },true);
+}
+document.getElementById('tsmode').onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+  tsMode=b.dataset.m;[...b.parentElement.children].forEach(c=>c.classList.toggle('on',c===b));drawTs();writeUrlState();};
+
+function drawRank(){
+  if(HL==='land'){ drawRankLand(); return; }
+  const m=METRICS.find(x=>x.k===metric);
+  const rows=filtered.map(f=>({f,v:val(f,year)})).filter(r=>r.v>0)
+    .sort((a,b)=>b.v-a.v).slice(0,15).reverse();
+  document.getElementById('ranklbl').innerHTML=
+    `topp 15 · ${cum?`kumulativt t.o.m. ${year}`:year} <span class="enh">${uLabel(metric)}</span>`;
+  rankChart.setOption({...BASE,legend:{show:false},
+    grid:{left:100,right:48,top:6,bottom:6},
+    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,2)}</b> ${uLabel(metric)}`},
+    xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
+    yAxis:{type:'category',data:rows.map(r=>tc(r.f.name)),...AX,
+      axisLabel:{color:selected?'#94a3b8':'#cbd5e1',fontSize:10.5,fontWeight:500},
+      splitLine:{show:false}},
+    series:[{type:'bar',barWidth:'72%',
+      showBackground:true,
+      backgroundStyle:{color:'rgba(148,163,184,.10)',borderRadius:[0,3,3,0]},
+      data:rows.map(r=>({value:+r.v.toFixed(3),itemStyle:{color:hcC(r.f.hcType),
+        opacity:selected&&selected!==r.f.id?.32:1,borderRadius:[0,3,3,0],
+        borderColor:selected===r.f.id?'#fff':'transparent',borderWidth:1.6}})),
+      label:{show:true,position:'right',color:'#cbd5e1',fontSize:9.5,fontWeight:600,
+        formatter:p=>fmt(p.value,p.value<10?1:0)}}]
+  },true);
+}
+/* Kraftverk rangeres etter arsproduksjon (GWh), ikke installert effekt (MW) -
+   det er produksjonen som er sammenlignbar med feltenes rangering. */
+function drawRankLand(){
+  const rows=powFiltered().map(r=>r.p).filter(p=>p.gwh>0)
+    .sort((a,b)=>b.gwh-a.gwh).slice(0,15).reverse();
+  document.getElementById('ranklbl').innerHTML=
+    `topp 15 · årsproduksjon <span class="enh">GWh/år</span>`;
+  rankChart.setOption({...BASE,legend:{show:false},
+    grid:{left:100,right:48,top:6,bottom:6},
+    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,0)}</b> GWh/år`},
+    xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
+    yAxis:{type:'category',data:rows.map(p=>p.n),...AX,
+      axisLabel:{color:selectedPower!=null?'#94a3b8':'#cbd5e1',fontSize:10.5,fontWeight:500},
+      splitLine:{show:false}},
+    series:[{type:'bar',barWidth:'72%',
+      showBackground:true,
+      backgroundStyle:{color:'rgba(148,163,184,.10)',borderRadius:[0,3,3,0]},
+      data:rows.map(p=>{const rank=POW.verk.indexOf(p);
+        return {value:+p.gwh.toFixed(0),itemStyle:{color:POWC[p.k],
+        opacity:selectedPower!=null&&selectedPower!==rank?.32:1,borderRadius:[0,3,3,0],
+        borderColor:selectedPower===rank?'#fff':'transparent',borderWidth:1.6}};}),
+      label:{show:true,position:'right',color:'#cbd5e1',fontSize:9.5,fontWeight:600,
+        formatter:p=>fmt(p.value,0)}}]
+  },true);
+}
+
+/* ---------- kartpopup ved valgt felt/anlegg (feltdetalj-hover) ----------
+   Sidepanelet (#detail) ligger nederst i høyre marg - man må se bort fra
+   kartet for å lese det etter et klikk. Denne kompakte popup-boksen vises
+   RETT VED punktet i kartet, med de viktigste nøkkeltallene. Sidepanelet
+   beholdes uendret som fullstendig visning (reserver, partnere, inntekt). */
+function ensureClickPopup(){
+  if(clickPopup) return clickPopup;
+  clickPopup=new maplibregl.Popup({closeButton:true,closeOnClick:false,offset:14,maxWidth:'240px',
+    className:'click-popup'});
+  // Brukeren lukker selv med X-knappen - da skal valget nullstilles overalt ellers,
+  // ikke bare i kartet. (remove() kalt fra vår egen drawMapPopup() fyrer også 'close',
+  // men da er selected/selectedPower allerede null, så guarden under hindrer looping.)
+  clickPopup.on('close',()=>{
+    if(selected||selectedPower!=null){
+      selected=null; selectedPower=null;
+      drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+    }
+  });
+  return clickPopup;
+}
+function popupHtmlField(f){
+  const i=year-YMIN, tot=f.s.oe.reduce((a,b)=>a+b,0);
+  const peak=Math.max(...f.s.oe), py=YMIN+f.s.oe.indexOf(peak);
+  return `<div style="font-size:14px;font-weight:700;margin-bottom:2px">
+      <span class="dot" style="background:${hcC(f.hcType)}"></span>${tc(f.name)}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:7px">${tc(f.operator)} · <b style="color:#cbd5e1">${statN(f.status)}</b></div>
+    <div style="font-size:12px;line-height:1.7;color:#cbd5e1">
+      ${year}: <b style="color:#e2e8f0">${fmt(cv(f.s.oe[i]),2)} ${uLabel('oe')}</b><br>
+      Kumulativt: <b style="color:#e2e8f0">${fmt(cv(tot),0)} ${uLabel('oe')}</b><br>
+      Toppår: <b style="color:#e2e8f0">${py}</b> (${fmt(cv(peak),1)} ${uLabel('oe')})
+    </div>`;
+}
+function popupHtmlPower(p){
+  return `<div style="font-size:14px;font-weight:700;margin-bottom:2px">
+      <span class="dot" style="background:${POWC[p.k]}"></span>${p.n}</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:7px">${p.eier||'Ukjent eier'} · <b style="color:#cbd5e1">${p.k==='vann'?'Vannkraft':'Vindkraft'}</b></div>
+    <div style="font-size:12px;line-height:1.7;color:#cbd5e1">
+      Effekt: <b style="color:#e2e8f0">${fmt(+p.mw,0)} MW</b><br>
+      Årsproduksjon: <b style="color:#e2e8f0">${p.gwh?fmt(+p.gwh,0):'–'} GWh/år</b><br>
+      Prisområde: <b style="color:#e2e8f0">${p.omr||'–'}</b> ${OMRN[p.omr]||''}
+    </div>`;
+}
+function drawMapPopup(){
+  if(!mapReady) return;
+  if(selected){
+    const f=D.fields.find(x=>x.id===selected);
+    if(f&&f.center){ ensureClickPopup().setLngLat(f.center).setHTML(popupHtmlField(f)).addTo(map); return; }
+  }
+  if(selectedPower!=null){
+    const p=POW.verk[selectedPower];
+    if(p&&p.c){ ensureClickPopup().setLngLat(p.c).setHTML(popupHtmlPower(p)).addTo(map); return; }
+  }
+  if(clickPopup) clickPopup.remove();
+}
+
+/* ---------- detalj ---------- */
+function drawDetail(){
+  const el=document.getElementById('detail');
+  drawMapPopup();
+  if(selectedPower!=null){ drawPowerDetail(el); return; }
+  if(!selected){el.innerHTML='<div class="empty">Klikk et felt eller kraftanlegg i kartet, listen eller stolpediagrammet</div>';return;}
+  const f=D.fields.find(x=>x.id===selected), i=year-YMIN;
+  const tot=k=>f.s[k].reduce((a,b)=>a+b,0);
+  const peak=Math.max(...f.s.oe), py=YMIN+f.s.oe.indexOf(peak), r=f.res;
+  const rr=(l,a,b,u)=>`<tr><td style="color:var(--tx3)">${l}</td>
+    <td style="text-align:right;font-variant-numeric:tabular-nums">${a?fmt(a,2):'–'}</td>
+    <td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--acc)">${b?fmt(b,2):'–'}</td>
+    <td style="color:var(--tx3);font-size:10px;padding-left:6px">${u}</td></tr>`;
+  /* NGL oppgis i mill TONN i reservetabellen (men i mill Sm³ i produksjonstabellen).
+     SODIRs faktor: 1 tonn NGL = 1,9 Sm³ o.e. Empirisk bekreftet mot fldRecoverableOE. */
+  const boe=unit==='boe';
+  const resRows = r ? (boe
+    ? rr('Olje',cv(r.recOil),cv(r.remOil),'mill fat')
+      +rr('Gass',cv(r.recGas),cv(r.remGas),'mill fat o.e.')
+      +rr('NGL',cv(r.recNgl*NGL_OE),cv(r.remNgl*NGL_OE),'mill fat o.e.')
+      +rr('Kondensat',cv(r.recCon),cv(r.remCon),'mill fat')
+      +rr('Sum o.e.',cv(r.recOe),cv(r.remOe),'mill fat o.e.')
+    : rr('Olje',r.recOil,r.remOil,'mill Sm³')
+      +rr('Gass',r.recGas,r.remGas,'mrd Sm³')
+      +rr('NGL',r.recNgl,r.remNgl,'mill tonn')
+      +rr('Kondensat',r.recCon,r.remCon,'mill Sm³')
+      +rr('Sum o.e.',r.recOe,r.remOe,'mill Sm³ o.e.')) : '';
+  el.innerHTML=`
+    <div style="font-size:16px;font-weight:700;letter-spacing:-.3px;margin-bottom:3px">
+      <span class="dot" style="background:${hcC(f.hcType)}"></span>${tc(f.name)}</div>
+    <div class="note" style="margin-top:0">${tc(f.operator)} · ${hcN(f.hcType)} · ${areaN(f.area)}<br>
+      <b>${statN(f.status)}</b> · funnet ${f.discovered||'–'} · produksjon ${f.firstYear}–${f.lastYear}</div>
+    <div class="kpis" style="margin-top:11px">
+      <div class="kpi"><div class="k">${year}</div><div class="v">${fmt(cv(f.s.oe[i]),2)}</div><div class="u">${uLabel('oe')}</div></div>
+      <div class="kpi"><div class="k">Kumulativt</div><div class="v">${fmt(cv(tot('oe')),0)}</div><div class="u">${uLabel('oe')}</div></div>
+      <div class="kpi"><div class="k">Toppår</div><div class="v">${py}</div><div class="u">${fmt(cv(peak),1)} ${uLabel('oe')}</div></div>
+    </div>
+    ${r?`<table class="res"><tr class="h"><td>Reserver</td><td style="text-align:right">Utvinnbart</td>
+      <td style="text-align:right">Gjenstår</td><td></td></tr>${resRows}</table>
+      <div class="note">Reserveanslag per ${r.asOf}. Kilde: Sokkeldirektoratet.</div>`
+     :'<div class="note">Ingen reservetall publisert for dette feltet.</div>'}
+    ${inntektBoks(f)}
+    ${partnerBoks(f)}`;
+}
+
+/* Detaljpanel for kraftanlegg - samme oppbygning som feltpanelet
+   (tittel/dot, note-linje, kpi-rad), slik at strøm og olje/gass
+   oppleves som samme type oppslag, ikke to ulike verktøy. */
+function drawPowerDetail(el){
+  const p=POW.verk[selectedPower];
+  if(!p){ el.innerHTML='<div class="empty">Fant ikke anlegget.</div>'; return; }
+  const pris=SPOT&&SPOT[p.omr]!=null?SPOT[p.omr]:null;
+  const krTime=pris!=null?p.mw*pris*1000:null;             // full effekt * spotpris
+  const krAar=p.gwh?p.gwh*1e6*(pris||0):null;              // grovt: årsproduksjon * dagens pris
+  el.innerHTML=`
+    <div style="font-size:16px;font-weight:700;letter-spacing:-.3px;margin-bottom:3px">
+      <span class="dot" style="background:${POWC[p.k]}"></span>${p.n}</div>
+    <div class="note" style="margin-top:0">${p.eier||'Ukjent eier'} · ${p.k==='vann'?'Vannkraft':'Vindkraft'}
+      ${p.fylke?` · ${p.fylke}`:''}<br>
+      <b>${p.omr||'–'} ${OMRN[p.omr]||''}</b>${p.aar?` · satt i drift ${p.aar}`:''}</div>
+    <div class="kpis" style="margin-top:11px">
+      <div class="kpi"><div class="k">Effekt</div><div class="v">${fmt(+p.mw,0)}</div><div class="u">MW</div></div>
+      <div class="kpi"><div class="k">Årsproduksjon</div><div class="v">${p.gwh?fmt(+p.gwh,0):'–'}</div><div class="u">GWh/år</div></div>
+      <div class="kpi"><div class="k">Prisområde</div><div class="v" style="font-size:15px">${p.omr||'–'}</div><div class="u">${OMRN[p.omr]||''}</div></div>
+    </div>
+    ${krTime!=null?`<div class="inc">
+      <div class="inc-h">Verdi ved full produksjon nå</div>
+      <div class="inc-v">${fmtNok(krTime)}<span style="font-size:13px;color:var(--tx3)"> / time</span></div>
+      ${krAar!=null?`<div class="inc-s">Tilsvarer omtrent ${fmtNok(krAar)} i året, gitt dagens spotpris i ${p.omr} og full ${p.k==='vann'?'tilsig':'vind'} hele tiden - reelt lavere.</div>`:''}
+      <div class="inc-s" style="margin-top:3px;color:var(--tx3)">Teoretisk tak basert på installert effekt, ikke faktisk produksjon time for time. Uoffisielt anslag.</div>
+    </div>`:'<div class="note">Mangler spotpris for prisområdet akkurat nå.</div>'}
+    <div class="note" style="margin-top:9px">Kilde: NVE (anleggsregister) og hvakosterstrommen.no (spotpris).</div>`;
+}
+
+/* Anslatt bruttoverdi for ett felt i valgt ar. Uoffisielt. */
+function inntektBoks(f){
+  if(!P) return '';
+  const y=(D.meta.partialYear&&year===D.meta.partialYear)?year-1:year;
+  const r=revenue([f],y);
+  if(!r||r.nok<=0) return '';
+  const mrd=r.nok/1000;
+  return `<div class="inc">
+    <div class="inc-h">Anslått verdi av produksjonen ${y}</div>
+    <div class="inc-v">${mrd>=1?Math.round(mrd).toLocaleString('nb-NO')+' mrd kr'
+                              :Math.round(r.nok).toLocaleString('nb-NO')+' mill kr'}</div>
+    <div class="inc-s">Produsert mengde × Brent ${r.brent.toFixed(0)} $/fat
+      og gass ${r.gas.toFixed(1)} $/MMBtu, omregnet med ${r.fx.toFixed(2)} kr/$.</div>
+    <div class="inc-s" style="margin-top:3px;color:var(--tx3)">
+      Bruttoverdi, ikke salgsinntekt eller fortjeneste. Uoffisielt anslag.</div>
+  </div>`;
+}
+
+/* Gjeldende rettighetshavere (SODIR field_licensee_hst, lag 7108). */
+function partnerBoks(f){
+  const e=PART[f.id];
+  const p=e&&e.p;
+  if(!p||!p.length) return '';
+  const vis=p.slice(0,6), rest=p.length-vis.length;
+  const kort=n=>n.replace(/\s+(AS|ASA|A\/S)$/i,'').trim();
+  /* Operatoren markeres. Navnene i de to kildene kan skrives litt ulikt,
+     sa vi sammenligner pa de forste ordene. */
+  const nokkel=s=>kort(s).toLowerCase().replace(/[^a-z0-9æøå ]/g,'').split(' ').slice(0,2).join(' ');
+  const opN=nokkel(f.operator||'');
+  return `<div class="prt">
+    <div class="prt-h">Rettighetshavere · ${p.length} selskap</div>
+    ${vis.map(([n,s])=>`<div class="prt-r${nokkel(n)===opN?' op':''}" title="${n} — ${s.toFixed(3)} %">
+      <span class="prt-n">${kort(n)}</span>
+      <span class="prt-b"><i style="width:${Math.max(1.5,s).toFixed(1)}%"></i></span>
+      <span class="prt-p">${s.toFixed(1)} %</span></div>`).join('')}
+    ${rest>0?`<div class="note" style="margin-top:5px">+ ${rest} selskap til</div>`:''}
+    <div class="note">Uthevet rad er operatør.
+      ${e.fra?`Andelene har vært gjeldende siden <b>${e.fra}</b>.`:'Andeler slik de står i dag.'}
+      Kilde: Sokkeldirektoratet.</div>
+  </div>`;
+}
+
+/* ---------- aktive filtre ---------- */
+function drawActive(){
+  const q=document.getElementById('search').value.trim();
+  const p=[];
+  if(F.op)     p.push(['op',    'Operatør',  tc(F.op)]);
+  if(F.status) p.push(['status','Status',    statN(F.status)]);
+  if(F.area)   p.push(['area',  'Havområde', areaN(F.area)]);
+  if(F.hc)     p.push(['hc',    'Type',      hcN(F.hc)]);
+  if(q)        p.push(['q',     'Søk',       q]);
+  const sel=selected?D.fields.find(f=>f.id===selected):null;
+  const html=p.map(([k,l,v])=>
+    `<span class="pill" title="${l}">${v}<span class="x" data-clr="${k}" tabindex="0" role="button" aria-label="Fjern filter ${l}">×</span></span>`).join('')
+    +(sel?`<span class="pill sel" title="Valgt felt">${tc(sel.name)}<span class="x" data-clr="sel" tabindex="0" role="button" aria-label="Fjern valgt felt">×</span></span>`:'')
+    +(p.length||sel?'':'<span class="pill none">Ingen filtre — viser alle felt</span>');
+  document.getElementById('active').innerHTML=
+    `<span class="lbl">Viser ${filtered.length} av ${D.fields.length} felt</span>${html}`+
+    `<button id="reset" ${p.length||sel?'':'disabled'}>Nullstill</button>`;
+  const clearFilter=k=>{
+    if(k==='sel') selected=null;
+    else if(k==='q'){document.getElementById('search').value='';}
+    else{F[k]=null; syncChips();}
+    refresh();
+  };
+  document.getElementById('active').onclick=e=>{
+    if(e.target.id==='reset'){resetAll();return;}
+    const k=e.target.dataset&&e.target.dataset.clr; if(!k)return;
+    clearFilter(k);
+  };
+  document.getElementById('active').onkeydown=e=>{
+    if(e.key!=='Enter'&&e.key!==' ') return;
+    const k=e.target.dataset&&e.target.dataset.clr; if(!k)return;
+    e.preventDefault(); clearFilter(k);
+  };
+  writeUrlState();
+}
+function syncChips(){
+  const map={status:'cstatus',area:'carea',hc:'chc'};
+  Object.entries(map).forEach(([k,id])=>{
+    const el=document.getElementById(id); if(!el)return;
+    [...el.children].forEach(c=>c.classList.toggle('on',(c.dataset.v||null)===F[k]));
+  });
+  document.getElementById('cop').value=F.op||'';
+}
+function resetAll(){
+  F.status=F.area=F.hc=F.op=null;
+  selected=null;
+  document.getElementById('search').value='';
+  syncChips();
+  refresh();
+  fitToFields();
+}
+
+/* ---------- innretningsikoner ---------- */
+/* Enkle, generiske silhuetter per innretningstype. Ikke fotografier — de er
+   opphavsrettsbeskyttet, og silhuetter er lesbarere i kartmalestokk.
+   Kilde for klassifisering: Sokkeldirektoratet, tabell facility_fixed. */
+/* Hver innretning har en lys hovedflate og en morkere skyggeflate.
+   Det gir dybde uten a koste ytelse - fortsatt bare SVG-baner. */
+const FAC_ICONS={
+  jacket:{                       // stalunderstell med boretarn og fakkelbom
+    l:`M20 4.2l3.4 11.2h-6.8z
+       M6.5 15.4h27v3.2h-27z
+       M12.6 18.6h3.2l-3 13.4h-3.2z
+       M24.2 18.6h3.2l3 13.4h-3.2z
+       M29.6 13.4l4-4.6 1.8 1.7-4 4.6z`,
+    d:`M6.5 18.6h27v2.1h-27z
+       M14.4 24.4h11.2v2.2H14.4z
+       M15.8 18.6h1.5l-3 13.4h-1.5z
+       M25.7 18.6h1.7l3 13.4h-1.7z`},
+  gbs:{                          // betongplattform, bred konisk soyle
+    l:`M20 3.6l3.2 11.4h-6.4z
+       M5.8 15h28.4v3.2H5.8z
+       M15.8 18.4h8.4l2.4 13.6H13.4z`,
+    d:`M5.8 18.2h28.4v2.1H5.8z
+       M22.6 18.4h1.6l2.4 13.6h-1.6z
+       M15.8 18.4h1.4l-2 13.6h-1.8z`},
+  fpso:{                         // produksjonsskip med overbygg og kran
+    l:`M4 21.4h32l-4.4 8.6H8.4z
+       M10.4 15h9.8v6.4h-9.8z
+       M25 11.6h2.4v9.8H25z
+       M28.2 12.6l4.6-4.2 1.7 1.8-4.6 4.2z`,
+    d:`M4 21.4h32l-1.2 2.4H5.2z
+       M17.6 15h2.6v6.4h-2.6z
+       M26.6 11.6h.8v9.8h-.8z`},
+  semi:{                         // halvt nedsenkbar med pononger
+    l:`M20 4.8l3.2 10.6h-6.4z
+       M5.4 15.4h29.2v3.4H5.4z
+       M11.8 18.8h3.6v6.8h-3.6z
+       M24.6 18.8h3.6v6.8h-3.6z
+       M4.8 25.4h13.2v4.8H4.8z
+       M22 25.4h13.2v4.8H22z`,
+    d:`M5.4 18.4h29.2v2h-29.2z
+       M14 18.8h1.4v6.8H14z
+       M26.8 18.8h1.4v6.8h-1.4z
+       M4.8 28.4h13.2v1.8H4.8z
+       M22 28.4h13.2v1.8H22z`},
+  subsea:{                       // havbunnsramme, ingenting over vann
+    l:`M11.4 22h17.2v9.6H11.4z
+       M15 17.2h3.4v4.8H15z
+       M21.6 17.2h3.4v4.8h-3.4z
+       M28.6 25.8h6.6v2.4h-6.6z
+       M4.8 25.8h6.6v2.4H4.8z`,
+    d:`M11.4 22h17.2v2.1H11.4z
+       M17.2 17.2h1.2v4.8h-1.2z
+       M23.8 17.2h1.2v4.8h-1.2z
+       M11.4 29.6h17.2v2H11.4z`},
+  loading:{                      // lastebye
+    l:`M20 12.4a7.4 7.4 0 1 1 0 14.8 7.4 7.4 0 0 1 0-14.8zm0 3.6a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z
+       M18.7 3.8h2.6v9h-2.6z
+       M18.7 26.8h2.6v7.6h-2.6z`,
+    d:`M20 23.4a3.8 3.8 0 0 0 3.8-3.8h3.6a7.4 7.4 0 0 1-7.4 7.4z`},
+};
+const FAC_LABEL={jacket:'Fast plattform på stålunderstell',gbs:'Betongplattform (Condeep)',
+  fpso:'Produksjonsskip (FPSO)',semi:'Flytende plattform (halvt nedsenkbar)',
+  subsea:'Havbunnsramme — ingenting over vann',loading:'Lastebøye'};
+
+function facSvg(kind){
+  const ic=FAC_ICONS[kind]||FAC_ICONS.subsea;
+  const havbunn = kind==='subsea';
+  const lys = havbunn?'#b6c6da':'#f2f6fb';
+  const mork= havbunn?'#7d8ea4':'#9fb2c9';
+  const p=s=>s.trim().split(/\s+(?=M)/).map(d=>`<path d="${d}"/>`).join('');
+  /* Mork kontur forst, sa flatene oppa. Gir lesbarhet mot alle bakgrunner. */
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="42" viewBox="0 0 40 36">
+       <g stroke="#060d18" stroke-width="3.4" stroke-linejoin="round" fill="#060d18"
+          opacity=".92">${p(ic.l)}${p(ic.d)}</g>
+       <g fill="${mork}">${p(ic.d)}</g>
+       <g fill="${lys}">${p(ic.l)}</g>
+       <g fill="${mork}">${p(ic.d)}</g>
+     </svg>`);
+}
+function loadFacIcons(){
+  return Promise.all(Object.keys(FAC_ICONS).map(k=>new Promise(res=>{
+    const img=new Image(48,42);
+    img.onload=()=>{ if(!map.hasImage('fac-'+k)) map.addImage('fac-'+k,img,{pixelRatio:2}); res(); };
+    img.onerror=()=>res();
+    img.src=facSvg(k);
+  })));
+}
+
+/* ---------- inntektsanslag ---------- */
+/* GROVT ANSLAG av bruttoverdien av produsert petroleum. Ikke offisielle tall.
+   Omregning etter Sokkeldirektoratets faktortabell:
+     1 Sm³ olje/kondensat = 6,29 fat
+     1 Sm³ naturgass      = 40 MJ  ->  40/1055,06 = 0,037913 MMBtu
+   Priser: Brent og europeisk gasspris (Verdensbanken/EIA), USD/NOK (Norges Bank).
+   NGL prises sjablongmessig til 50 % av Brent per fat — det finnes ingen fri
+   europeisk NGL-serie, og propan ligger historisk rundt dette nivået. */
+let P=null;                                  // prices.json
+const MMBTU_PER_SM3 = 40/1055.06;            // 0,037913
+const NGL_DISCOUNT  = 0.50;
+const TICK_COLORS={oil:'#fbbf24',gas:'#34d399',ngl:'#38bdf8',con:'#c084fc'};
+
+function priceIdx(y){
+  if(!P) return -1;
+  let i=P.years.indexOf(y);
+  if(i>=0) return i;
+  return P.years.length-1;                   // fall tilbake til siste kjente år
+}
+/* Verdi i mill USD for ett år, gitt et sett felt. */
+function revenue(fields,y){
+  if(!P) return null;
+  const i=priceIdx(y), k=y-YMIN;
+  if(i<0||k<0) return null;
+  const brent=P.oil[i], gas=P.gas[i], fx=P.fx[i];
+  if(brent==null||gas==null||fx==null) return null;
+  const S=key=>fields.reduce((a,f)=>a+(f.s[key][k]||0),0);
+  const usd={
+    oil: S('oil')*BOE*brent,
+    gas: S('gas')*1000*MMBTU_PER_SM3*gas,    // mrd Sm³ -> mill MMBtu
+    ngl: S('ngl')*BOE*brent*NGL_DISCOUNT,
+    con: S('con')*BOE*brent,
+  };
+  usd.total=usd.oil+usd.gas+usd.ngl+usd.con;
+  return {usd, nok:usd.total*fx, fx, brent, gas, year:P.years[i],
+          parts:{oil:usd.oil*fx,gas:usd.gas*fx,ngl:usd.ngl*fx,con:usd.con*fx}};
+}
+
+const T0=Date.now();
+let tickRate=0, tickParts=null, tickBase=null;
+function computeTickRate(){
+  if(!P||!D) return;
+  /* Bruk siste hele år for volum, men ferskeste noterte priser for verdien.
+     Da svarer telleren på "hva er dette verdt akkurat nå", ikke i fjor. */
+  const y = D.meta.partialYear ? D.meta.partialYear-1 : D.meta.yearMax;
+  const i = y-YMIN, pi = priceIdx(y), sp = P.spot||{};
+  const brent = sp.brent!=null ? sp.brent : P.oil[pi];
+  const gass  = sp.gass !=null ? sp.gass  : P.gas[pi];
+  const fx    = sp.fx   !=null ? sp.fx    : P.fx[pi];
+  if(brent==null||gass==null||fx==null) return;
+  const S=k=>D.fields.reduce((a,f)=>a+(f.s[k][i]||0),0);
+  const usd={
+    oil: S('oil')*BOE*brent,
+    gas: S('gas')*1000*MMBTU_PER_SM3*gass,        // mrd Sm³ -> mill MMBtu
+    ngl: S('ngl')*BOE*brent*NGL_DISCOUNT,
+    con: S('con')*BOE*brent,
+  };
+  const SEK=365.25*24*3600;
+  const nok=(usd.oil+usd.gas+usd.ngl+usd.con)*fx;  // mill NOK per år
+  tickRate = nok*1e6/SEK;
+  tickParts = Object.fromEntries(Object.entries(usd).map(([k,v])=>[k,v*fx*1e6/SEK]));
+  tickBase = {nok, fx, brent, gas:gass, y,
+              brentDato:sp.brentDato||null, fxDato:sp.fxDato||null,
+              gassDato:sp.gassDato||null,
+              fersk: sp.brent!=null};
+}
+function fmtNok(v){
+  if(v>=1e9) return Math.round(v/1e9).toLocaleString('nb-NO')+' mrd kr';
+  if(v>=1e6) return Math.round(v/1e6).toLocaleString('nb-NO')+' mill kr';
+  return Math.round(v).toLocaleString('nb-NO')+' kr';
+}
+/* Telleren ble forst oppfattet som "crazy": tegnet pa nytt hver animasjonsframe
+   (opptil 60 ganger/sek) med kr-nøyaktighet, som fikk de siste sifrene til a myldre.
+   En throttling til 4x/sek gjorde det roligere, men da ble hoppene mellom hvert tall
+   sa store at det i stedet virket hakkete. Losningen er en avveining pa begge akser:
+   - 10 oppdateringer/sek er den vanlige "sweet spot"-raten for tellere som skal
+     se levende ut uten a virke som et spillemaskin-hjul (samme rate mange
+     børs-/befolkningstellere bruker).
+   - I tillegg avrundes tallet til nærmeste 10 kr - de aller siste sifrene endrer seg
+     ellers sa fort at de bare leses som "stoy", uansett oppdateringsrate. */
+let lastDrawMs=0;
+const TICK_REFRESH_MS=100;                 // 10 oppdateringer i sekundet - rolig, men levende
+function drawTick(){
+  if(!tickRate||!tickBase){document.getElementById('tick').style.display='none';return;}
+  const now=Date.now();
+  if(now-lastDrawMs<TICK_REFRESH_MS) return;
+  lastDrawMs=now;
+  const s=(now-T0)/1000, v=tickRate*s;
+  const mm=Math.floor(s/60), ss=Math.floor(s%60);
+  const t = mm ? `${mm} min ${ss} s` : `${ss} sekunder`;
+  if(t!==lastTime){document.getElementById('tk-time').textContent=t;lastTime=t;}
+  document.getElementById('tk-nok').textContent=
+    (Math.round(v/10)*10).toLocaleString('nb-NO')+' kr';
+  const sub=`${fmtNok(tickRate)} i sekundet`;
+  if(sub!==lastSub){document.getElementById('tk-sub').innerHTML=sub;lastSub=sub;}
+
+  /* Strømtelleren går parallelt, med samme startpunkt. */
+  const pe=document.getElementById('tk-pow');
+  if(powRate){
+    pe.textContent=(Math.round(powRate*s/10)*10).toLocaleString('nb-NO')+' kr';
+    const ps=`${fmtNok(powRate)} i sekundet`;
+    if(ps!==lastPowSub){document.getElementById('tk-powsub').innerHTML=ps;lastPowSub=ps;}
+  }else if(pe.textContent!=='–'){
+    pe.textContent='–'; document.getElementById('tk-powsub').textContent='henter priser…';
+  }
+
+  const kl=new Date().toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(kl!==lastKl){document.getElementById('tk-klokke').textContent=kl;lastKl=kl;}
+  drawFun(v);
+}
+let lastTime='',lastSub='',lastFun='',lastKl='',lastPowSub='';
+
+/* Morsom sammenligning. Prisene er grove anslag i 2026-kroner og skal kun
+   gi en folelse av storrelsesorden. Velges tilfeldig og byttes hvert 6. sekund. */
+const FUN=[
+  [5,       'twist-sjokolade',                   'twist-sjokolader'],
+  [15,      'liter melk',                        'liter melk'],
+  [22,      'kvikklunsj',                        'kvikklunsjer'],
+  [35,      'løssalgsavis',                      'løssalgsaviser'],
+  [45,      'pølse i lompe',                     'pølser i lompe'],
+  [55,      'kopp kaffe på kafé',                'kopper kaffe på kafé'],
+  [80,      'øl på utested',                     'øl på utested'],
+  [120,     'kilo brunost',                      'kilo brunost'],
+  [150,     'kebab',                             'kebaber'],
+  [190,     'kinobillett',                       'kinobilletter'],
+  [300,     'konsertbillett',                    'konsertbilletter'],
+  [430,     'fotball',                           'fotballer'],
+  [650,     'par joggesko',                      'par joggesko'],
+  [850,     'månedskort på bussen',              'månedskort på bussen'],
+  [1200,    'middag for to på restaurant',       'middager for to på restaurant'],
+  [1400,    'par ski',                           'par ski'],
+  [4200,    'døgn på hotell i Oslo',             'døgn på hotell i Oslo'],
+  [9500,    'ny sykkel',                         'nye sykler'],
+  [13000,   'gaming-PC',                         'gaming-PC-er'],
+  [16000,   'strømregning for et helt år',       'årlige strømregninger'],
+  [24000,   'flybillett Oslo–New York',          'flybilletter Oslo–New York'],
+  [35000,   'russefeiring',                      'russefeiringer'],
+  [90000,   'skoleår på privatskole',            'skoleår på privatskole'],
+  [140000,  'elsykkel til en hel skoleklasse',   'elsykler til en hel skoleklasse'],
+  [250000,  'brukt bil',                         'brukte biler'],
+  [480000,  'ny elbil',                          'nye elbiler'],
+  [720000,  'årslønn for en lærer',              'lærerårslønner'],
+  [1300000, 'sykehjemsplass i ett år',           'sykehjemsplasser i ett år'],
+  [2200000, 'enebolig utenfor de store byene',   'eneboliger utenfor de store byene'],
+  [4800000, 'enebolig i en storby',              'eneboliger i en storby'],
+  [8000000, 'leilighet i Oslo sentrum',          'leiligheter i Oslo sentrum'],
+  [15000000,'ny brannbil',                       'nye brannbiler'],
+  [42000000,'ny barnehage',                      'nye barnehager'],
+  [90000000,'oppussing av en skole',             'oppussinger av en skole'],
+  [430000000,'ny ungdomsskole',                  'nye ungdomsskoler'],
+];
+let funIdx=Math.floor(Math.random()*FUN.length), funT=0, funDrawT=0;
+function drawFun(v){
+  const now=Date.now();
+  let bytt=false;
+  if(now-funT>10000){                      // bytt sammenligning hvert 10. sekund
+    const ok=FUN.map((f,i)=>i).filter(i=>v/FUN[i][0]>=2);
+    if(ok.length){
+      const pool=ok.slice(-8);             // hold oss til de mest relevante
+      let n=pool[Math.floor(Math.random()*pool.length)];
+      if(pool.length>1&&n===funIdx) n=pool[(pool.indexOf(n)+1)%pool.length];
+      funIdx=n;
+    }
+    funT=now; bytt=true;
+  }
+  /* Selve tallet oppdateres rolig - hovedtelleren over star for bevegelsen. */
+  if(!bytt&&now-funDrawT<2000) return;
+  funDrawT=now;
+  const [pris,ent,fler]=FUN[funIdx];
+  const n=Math.floor(v/pris);
+  if(n<2){document.getElementById('tk-fun').textContent='';lastFun='';return;}
+  const html=`Det er nok til <b>${n.toLocaleString('nb-NO')} ${fler}</b>.`;
+  if(html!==lastFun){document.getElementById('tk-fun').innerHTML=html;lastFun=html;}
+}
+function tickLegend(){ /* fordelingen per produkt er fjernet - lite interessant */ }
+
+/* ---------- storrelsesklasser ---------- */
+/* Faste klasser, ikke skalert mot arets maks. Da betyr en boble det samme
+   uansett hvilket ar du star pa - viktig nar du spoler gjennom tiden. */
+function BANDS(){
+  const b=[{t:50,c:'#fbbf24',l:'Svært stort'},
+           {t:15,c:'#f59e0b',l:'Stort'},
+           {t:4, c:'#94a3b8',l:'Middels'},
+           {t:0, c:'#64748b',l:'Lite'}];
+  return b.map(x=>({...x,l:`${x.l} · ${x.t?`over ${fmt(cv(x.t),0)}`:`under ${fmt(cv(4),0)}`} ${uLabel('oe')}`}));
+}
+function bandColor(vOe){          // vOe i mill Sm3 o.e. (ukonvertert)
+  return vOe>=50?'#fbbf24':vOe>=15?'#f59e0b':vOe>=4?'#94a3b8':'#64748b';
+}
+
+/* ---------- hjelp ---------- */
+/* Enkel endringslogg - oppdateres manuelt nar metode/datagrunnlag endres.
+   Nyeste forst. Datoene er filsystem-tidsstemplene til okt-sjekkpunktene,
+   ikke gjettet i etterkant. */
+const CHANGELOG=[
+ {dato:'3. september 2026', pkt:[
+   'Delbar lenke: hele visningen (år, enhet, filtre, valgt felt/kraftanlegg, Hav/Land) kan nå kopieres og deles som URL.',
+   'Tilgjengelighet: bedre tekstkontrast, felt-/kraftanlegglistene er tastaturoperable, og feltomriss får eget strekmønster per type (ikke bare farge) for rød-grønn fargeblindhet.',
+   'Hav/Land-bryter: olje/gass fra sokkelen og vann-/vindkraft på land i samme kart, med egen kapasitetsfaktor-forklaring for kraftanlegg.',
+   'Fersk europeisk gasspris (TTF-futures) i inntektstelleren, i stedet for kun forrige års snitt.',
+   'Klikkbar popup i kartet med feltdetaljer, dempet kartetetthet ved høy zoom, og ryddigere prisområde-etiketter (NO1–NO5).',
+   'CSV-eksport av gjeldende utvalg (felt eller kraftanlegg).'
+ ]},
+ {dato:'2. september 2026', pkt:[
+   'Strømdata fra NVE lagt til: vann- og vindkraftanlegg, prisområder NO1–NO5, spotpris.',
+   'Kartlagenes synlighet justert per zoomnivå, og kroneverdier justert for inflasjon (KPI, SSB).',
+   'Fiks av en klikk-bug der feil felt ble valgt ved overlappende bobler.'
+ ]},
+ {dato:'1. september 2026', pkt:[
+   'Første versjon: interaktivt kart over felt på norsk sokkel (MapLibre), årlig produksjon og kumulativ visning tilbake til 1971.'
+ ]},
+];
+function renderChangelog(){
+  const el=document.getElementById('endringsliste');
+  if(!el) return;
+  el.innerHTML=CHANGELOG.map(g=>`<li><b>${g.dato}</b><ul>${
+    g.pkt.map(p=>`<li>${p}</li>`).join('')}</ul></li>`).join('');
+}
+function initHjelp(){
+  renderChangelog();
+  const el=document.getElementById('hjelp');
+  const vis=()=>el.classList.remove('skjult');
+  const skjul=()=>{el.classList.add('skjult');
+    try{localStorage.setItem('sokkel-sett','1');}catch(e){}};
+  document.getElementById('hjelplukk').onclick=skjul;
+  document.getElementById('hjelpknapp').onclick=vis;
+  document.getElementById('endrknapp').onclick=()=>{
+    vis();
+    setTimeout(()=>document.getElementById('endringer-seksjon')
+      .scrollIntoView({behavior:'smooth',block:'start'}),50);
+  };
+  el.onclick=e=>{if(e.target===el) skjul();};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape') skjul();});
+  let sett=null; try{sett=localStorage.getItem('sokkel-sett');}catch(e){}
+  if(!sett) vis();
+}
+
+/* ---------- strom pa land ---------- */
+/* Vannkraft og vindkraft fra NVE (NLOD), koordinater fra GeoNorge WFS og
+   NVEs vindkraft-GIS. Spotpris hentes direkte fra hvakosterstrommen.no, som
+   bygger pa Nord Pools dagen-for-priser. Prisen er fersk hver gang du apner. */
+let POW=null, powOn=false, SPOT=null;
+const POWC={vann:'#38bdf8', vind:'#2dd4bf'};
+const OMRN={NO1:'Sørøst',NO2:'Sørvest',NO3:'Midt',NO4:'Nord',NO5:'Vest'};
+const PWR_LAG=['pwr','pwr-md','pwr-sm'];
+const FIELD_LAG=['poly-fill','poly-line','poly-line-gas','poly-line-both','poly-line-con','bub','fac','lbl'];
+function setFieldLayers(v){
+  FIELD_LAG.forEach(l=>{ if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v); });
+}
+
+/* Delt av bade den gamle enkelt-chippen (na fjernet) og Hav/Land-bryteren:
+   sorg for at kraftlaget/spotprisen vises eller skjules, og last power.json
+   forst gang det trengs. Returnerer nar laget faktisk er klart. */
+async function setPowerVisible(on){
+  powOn=on;
+  document.getElementById('spot').hidden=!on;
+  const vis=v=>[...PWR_LAG,'pwr-lbl'].forEach(l=>{
+    if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v);});
+  if(!on){ vis('none'); return; }
+  if(!POW){
+    try{ POW=await (await fetch('power.json')).json(); }
+    catch(e){ powOn=false; document.getElementById('spot').hidden=true; return; }
+  }
+  if(!map.getSource('pwr')) addPowerLayers();
+  if(!SPOT) loadSpot();
+  vis('visible');
+}
+
+/* Hav/Land - de to hovedmodulene. Hav = felt (olje/gass), Land = kraftanlegg
+   (vann/vind na, havvind/sol/termisk nar de far datagrunnlag). Bytter kartlag,
+   sidepanel-liste, KPI-kort og rangering - selve sammenligningstelleren (tk-cmp)
+   star fast uansett, det er jo poenget. */
+let HL='hav';
+async function setHL(hl){
+  if(HL===hl) return;
+  HL=hl;
+  document.querySelectorAll('#havland .hlbtn').forEach(b=>b.classList.toggle('on',b.dataset.hl===hl));
+  if(hl==='land'){
+    selected=null; if(popup) popup.remove();
+    setFieldLayers('none');
+    await setPowerVisible(true);
+  }else{
+    selectedPower=null;
+    setFieldLayers('visible');
+    await setPowerVisible(false);
+  }
+  document.getElementById('timebar').style.display = hl==='land' ? 'none' : '';
+  document.getElementById('side').classList.toggle('land-mode',hl==='land');
+  document.getElementById('charts').classList.toggle('land-mode',hl==='land');
+  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+}
+
+function addPowerLayers(){
+  if(map.getSource('pwr')) return;
+  const feats=POW.verk.map((p,i)=>({type:'Feature',
+    geometry:{type:'Point',coordinates:p.c},
+    properties:{n:p.n,k:p.k,mw:p.mw,gwh:p.gwh,eier:p.eier,omr:p.omr,
+      fylke:p.fylke,aar:p.aar||'',turb:p.turb||0,
+      color:POWC[p.k],
+      /* Arealproporsjonal radius, samme prinsipp som feltboblene. */
+      r:Math.max(2.4,Math.sqrt(p.mw)*0.8),
+      rank:i}}));
+  map.addSource('pwr',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+
+  /* Tre nivaer sa kartet ikke drukner i prikker. Sma kraftverk dukker forst
+     opp nar du zoomer inn - det er over tusen av dem. */
+  const sirkel=(id,filter,minzoom)=>map.addLayer({id,type:'circle',source:'pwr',
+    filter, ...(minzoom?{minzoom}:{}),
+    paint:{'circle-radius':['interpolate',['linear'],['zoom'],
+             3,['*',['get','r'],0.45], 6,['*',['get','r'],0.85], 10,['*',['get','r'],1.7]],
+           'circle-color':['get','color'],'circle-opacity':0.30,
+           'circle-stroke-color':['get','color'],'circle-stroke-width':1.2,
+           'circle-stroke-opacity':0.8}},'lbl');
+  sirkel('pwr',   ['>=',['get','mw'],100]);                 // store: alltid synlig
+  sirkel('pwr-md',['all',['>=',['get','mw'],20],['<',['get','mw'],100]], 5.4);
+  sirkel('pwr-sm',['<',['get','mw'],20], 7.4);              // smakraftverk: langt inn
+
+  map.addLayer({id:'pwr-lbl',type:'symbol',source:'pwr',
+    filter:['>=',['get','mw'],20], minzoom:6.4,
+    layout:{'text-field':['get','n'],'text-font':['Noto Sans Regular'],
+            'text-size':['interpolate',['linear'],['zoom'],6.4,9.5,10,12],
+            'text-variable-anchor':['top','bottom','left','right'],
+            'text-radial-offset':0.7,'text-justify':'auto',
+            'text-allow-overlap':false,'symbol-sort-key':['get','rank']},
+    paint:{'text-color':'#a5b4c8','text-halo-color':'#0f172a','text-halo-width':1.7}},'lbl');
+
+  const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:10});
+  PWR_LAG.forEach(L=>{
+    map.on('mousemove',L,e=>{
+      const p=e.features[0].properties;
+      map.getCanvas().style.cursor='pointer';
+      const pris=SPOT&&SPOT[p.omr]!=null?SPOT[p.omr]:null;
+      // MW * pris(kr/kWh) * 1000 kWh/MWh = kr per time ved full produksjon
+      const kr=pris!=null?p.mw*pris*1000:null;
+      pop.setLngLat(e.lngLat).setHTML(
+        `<b>${p.n}</b><br>
+         <span style="color:#94a3b8">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
+        +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
+         <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}</span>`
+        +(kr!=null?`<br><span style="color:#fde68a;font-size:11px">Ved full produksjon nå: ${fmtNok(kr)}/time</span>`:'')
+      ).addTo(map);
+    });
+    map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
+  });
+}
+
+/* ---------- prisomrade-grenser (NO1-NO5), eget valgfritt lag ---------- */
+/* Tilnaermet: bygget av fylkesgrenser (Kartverket/robhop), gruppert til
+   omrader. Ekte elspot-grenser folger IKKE alltid fylkesgrenser eksakt
+   (enkelte fylker er reelt delt), sa dette viser hvor omradene STORT SETT
+   gar - ikke en offisiell nettopologi. Det star ogsa i fotnoten i kartet. */
+const OMR_COLOR={NO1:'#f97316',NO2:'#a855f7',NO3:'#22c55e',NO4:'#38bdf8',NO5:'#facc15'};
+let OMR=null, omrOn=false;
+async function toggleOmr(){
+  omrOn=!omrOn;
+  const chip=document.getElementById('omrchip');
+  chip.classList.toggle('on',omrOn);
+  const vis=v=>['omr-fill','omr-line','omr-lbl'].forEach(l=>{
+    if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v);});
+  if(!omrOn){ vis('none'); writeUrlState(); return; }
+  if(!OMR){
+    chip.textContent='🗺️ Laster…';
+    try{ OMR=await (await fetch('omrader.geojson')).json(); }
+    catch(e){ chip.textContent='🗺️ Prisområder'; omrOn=false; chip.classList.remove('on'); return; }
+    chip.textContent='🗺️ Prisområder';
+  }
+  if(!map.getSource('omr')) addOmrLayers();
+  vis('visible');
+  writeUrlState();
+}
+function addOmrLayers(){
+  if(map.getSource('omr')) return;
+  map.addSource('omr',{type:'geojson',data:OMR});
+  map.addLayer({id:'omr-fill',type:'fill',source:'omr',
+    paint:{'fill-color':['match',['get','omr'],
+             'NO1',OMR_COLOR.NO1,'NO2',OMR_COLOR.NO2,'NO3',OMR_COLOR.NO3,
+             'NO4',OMR_COLOR.NO4,'NO5',OMR_COLOR.NO5,'#94a3b8'],
+           'fill-opacity':0.10}},'lbl');
+  map.addLayer({id:'omr-line',type:'line',source:'omr',
+    paint:{'line-color':['match',['get','omr'],
+             'NO1',OMR_COLOR.NO1,'NO2',OMR_COLOR.NO2,'NO3',OMR_COLOR.NO3,
+             'NO4',OMR_COLOR.NO4,'NO5',OMR_COLOR.NO5,'#94a3b8'],
+           'line-width':1.1,'line-opacity':0.55}},'lbl');
+  /* Etikettene ble tidligere lagt pa en hel fylkesgeometri (f.eks. Vestland),
+     som er en MultiPolygon med mange oyer/fjordarmer - MapLibre tegner da EN
+     etikett per polygon-del, ikke en per omrade (NO5 kunne dukke opp 20+
+     ganger ved full utzoom). Regner na ut ETT representativt punkt per
+     omrade: sentrum av den storste sammenhengende landmassen i hele
+     prisomradet (alle fylker sett under ett), sa det garantert blir noyaktig
+     en etikett per omrade uansett kystlinjens kompleksitet. */
+  const ringArea=r=>{let a=0;for(let i=0;i<r.length-1;i++){const[x1,y1]=r[i],[x2,y2]=r[i+1];a+=x1*y2-x2*y1;}return a/2;};
+  const ringCentroid=r=>{let a=0,cx=0,cy=0;
+    for(let i=0;i<r.length-1;i++){const[x1,y1]=r[i],[x2,y2]=r[i+1];const c=x1*y2-x2*y1;a+=c;cx+=(x1+x2)*c;cy+=(y1+y2)*c;}
+    a/=2; return Math.abs(a)<1e-9 ? r[0] : [cx/(6*a),cy/(6*a)];};
+  const byOmr={};
+  for(const f of OMR.features){ (byOmr[f.properties.omr]=byOmr[f.properties.omr]||[]).push(f); }
+  const lblFeats=Object.entries(byOmr).map(([o,feats])=>{
+    let best=null,bestArea=-1;
+    for(const f of feats){
+      const g=f.geometry;
+      const polys=g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[];
+      for(const poly of polys){
+        const ar=Math.abs(ringArea(poly[0]));
+        if(ar>bestArea){bestArea=ar;best=poly[0];}
+      }
+    }
+    return {type:'Feature',geometry:{type:'Point',coordinates:best?ringCentroid(best):feats[0].geometry.coordinates},
+      properties:{omr:o}};
+  });
+  map.addSource('omr-lbl-src',{type:'geojson',data:{type:'FeatureCollection',features:lblFeats}});
+  map.addLayer({id:'omr-lbl',type:'symbol',source:'omr-lbl-src',
+    layout:{'text-field':['get','omr'],'text-font':['Noto Sans Regular'],
+            'text-size':11.5,'text-letter-spacing':0.06,'symbol-placement':'point'},
+    paint:{'text-color':'#e2e8f0','text-opacity':0.75,
+           'text-halo-color':'#0f172a','text-halo-width':1.4}});
+}
+
+/* Spotpris per prisomrade for inneverende time. */
+async function loadSpot(){
+  const d=new Date();
+  const dato=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const omr=['NO1','NO2','NO3','NO4','NO5'];
+  const res=await Promise.all(omr.map(async o=>{
+    try{
+      const r=await fetch(`https://www.hvakosterstrommen.no/api/v1/prices/${dato}_${o}.json`);
+      if(!r.ok) return null;
+      const j=await r.json();
+      const n=j.find(x=>{const a=new Date(x.time_start),b=new Date(x.time_end);return d>=a&&d<b;});
+      return n?n.NOK_per_kWh:null;
+    }catch(e){ return null; }
+  }));
+  SPOT={}; omr.forEach((o,i)=>{ if(res[i]!=null) SPOT[o]=res[i]; });
+  drawSpot();
+  drawCompare();
+}
+
+function drawSpot(){
+  const el=document.getElementById('spot');
+  if(!SPOT||!Object.keys(SPOT).length){
+    el.innerHTML='<h4>Strømpris</h4><div class="foot">Fikk ikke hentet priser akkurat nå.</div>';
+    return;
+  }
+  const maks=Math.max(...Object.values(SPOT),0.01);
+  const kl=new Date().toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
+  /* Verdi av full installert effekt akkurat na, som stromprisen tilsier.
+     Teoretisk tak, ikke faktisk produksjon - det star i fotnoten. */
+  let krTime=0;
+  for(const [o,d] of Object.entries(POW.omrader)){
+    const p=SPOT[o]; if(p==null) continue;
+    krTime+=(d.vann_mw+d.vind_mw)*p*1000;
+  }
+  el.innerHTML=`<h4><span class="live"><i></i>Strømpris</span>
+      <span class="klokke">kl. ${kl}</span></h4>
+    ${Object.entries(SPOT).sort((a,b)=>b[1]-a[1]).map(([o,p])=>
+      `<div class="sr"><span class="omr" title="${OMRN[o]||''}">${o}</span>
+        <span class="bar"><i style="width:${Math.max(3,p/maks*100).toFixed(0)}%;
+          background:${p>1.5?'#f87171':p>0.8?'#fbbf24':'#4ade80'}"></i></span>
+        <span class="pr">${p.toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2})} kr</span></div>`).join('')}
+    <div class="foot">Pris per kWh uten avgifter og nettleie.<br>
+      <b>${fmt((POW.omrader?Object.values(POW.omrader).reduce((a,d)=>a+d.vann_mw+d.vind_mw,0):0)/1000,1)} GW</b>
+      installert effekt er verdt <span class="verdi">${fmtNok(krTime)}</span> per time
+      hvis alt gikk for full maskin nå.<br>
+      Kilde: NVE og hvakosterstrommen.no</div>`;
+}
+
+/* Energiinnhold, fra Sokkeldirektoratets faktortabell (Fakta, Vedlegg 5):
+     1 Sm³ råolje    = 35 500 MJ
+     1 Sm³ naturgass = 40 MJ  (1000 Sm³ gass = 1 Sm³ o.e.)
+   1 MWh = 3600 MJ, så 1 Sm³ o.e. = 35500/3600 = 9,861 MWh.
+   1 mill Sm³ o.e. = 9,861 mill MWh = 9,861 TWh.
+   Dette lar oss sammenligne petroleum og elektrisitet i samme enhet. */
+const TWH_PER_MILL_SM3_OE = 35500/3600;           // 9,861 TWh per mill Sm³ o.e.
+
+/* Sammenligning offshore mot land. Star fast uansett hvilket kartlag som er
+   valgt - det er selve poenget med a se de to opp mot hverandre. */
+let powRate=0, powTwh=0;
+function drawCompare(){
+  const el=document.getElementById('tk-cmp');
+  if(!POW||!SPOT||!tickRate){ el.hidden=true; return; }
+  const SEK=365.25*24*3600;
+  powRate=0; powTwh=0;
+  for(const [o,d] of Object.entries(POW.omrader)){
+    const twh=(d.vann_gwh+d.vind_gwh)/1000;
+    powTwh+=twh;
+    const p=SPOT[o]; if(p==null) continue;
+    powRate += twh*1e9*p/SEK;                      // TWh -> kWh -> kr/s
+  }
+  if(!powRate){ el.hidden=true; return; }
+  /* Offshore: siste hele ars produksjon i mill Sm³ o.e. -> TWh */
+  const y=D.meta.partialYear?D.meta.partialYear-1:D.meta.yearMax;
+  const oeMill=D.fields.reduce((a,f)=>a+(f.s.oe[y-YMIN]||0),0);
+  const oilTwh=oeMill*TWH_PER_MILL_SM3_OE;
+
+  const maksT=Math.max(oilTwh,powTwh), maksK=Math.max(tickRate,powRate);
+  const rad=(navn,farge,twh,kr)=>`<div class="crad">
+      <span class="nv"><i style="background:${farge}"></i>${navn}</span>
+      <span class="sp"><b style="width:${(twh/maksT*100).toFixed(0)}%;background:${farge}"></b></span>
+      <span class="tw">${fmt(twh,0)} TWh</span>
+      <span class="sp"><b style="width:${(kr/maksK*100).toFixed(0)}%;background:${farge};opacity:.6"></b></span>
+      <span class="kr">${fmtNok(kr)}/s</span></div>`;
+  const fE=powTwh?oilTwh/powTwh:0, fK=powRate?tickRate/powRate:0;
+  el.hidden=false;
+  el.innerHTML=`<div class="chead"><span>Energi per år</span><span>Verdi nå</span></div>`
+    +rad('Offshore olje og gass','#fbbf24',oilTwh,tickRate)
+    +rad('Strøm på land','#38bdf8',powTwh,powRate)
+    +`<div class="fot">Olje og gass gir <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b>
+       så mye energi som all norsk vann- og vindkraft, men er verdt bare
+       <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye.</div>`;
+  tegnNote();
+}
+
+/* Prisgrunnlaget, sa det ikke er tvil om hva tallene bygger pa. */
+function tegnNote(){
+  const el=document.getElementById('tk-note');
+  if(!el||!tickBase) return;
+  const b=tickBase;
+  const n2=v=>v.toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const oljeKilde=b.fersk
+    ? `Brent <b>${n2(b.brent)} $/fat</b> (${b.brentDato||'siste notering'}), `
+      +`gass <b>${n2(b.gas)} $/MMBtu</b>${b.gassDato?` (${b.gassDato})`:''}, kurs <b>${n2(b.fx)} kr/$</b>`
+      +`${b.fxDato?` per ${b.fxDato.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$3.$2.$1')}`:''}`
+    : `årsgjennomsnitt for ${b.y}`;
+  el.innerHTML=`<b>Uoffisielt anslag.</b> Volum er siste hele års produksjon fordelt jevnt
+    utover året. Olje og gass prises med ${oljeKilde}.
+    ${SPOT?`Strøm prises med spotpris nå i hvert prisområde.`:''}
+    Dette er bruttoverdi, ikke salgsinntekt eller fortjeneste — kontrakter,
+    prissikring, kostnader og skatt er ikke med.
+    Produksjonstall fra Sokkeldirektoratet og NVE; beregningen er vår egen.`;
+}
+
+/* ---------- refresh ---------- */
+function refresh(){
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  filtered=D.fields.filter(f=>
+    (!F.status||f.status===F.status)&&(!F.area||f.area===F.area)&&(!F.hc||f.hcType===F.hc)&&
+    (!F.op||f.operator===F.op)&&
+    (!q||f.name.toLowerCase().includes(q)||f.operator.toLowerCase().includes(q)));
+  if(selected&&!filtered.some(f=>f.id===selected)) selected=null;
+  document.getElementById('yearlbl').innerHTML=year+
+    (year===D.meta.partialYear?`<span>t.o.m. ${String(D.meta.lastDataMonth).padStart(2,'0')}/${year}</span>`:'<span>&nbsp;</span>');
+  drawMap();drawList();drawKpis();drawTs();drawRank();drawDetail();drawActive();
+}
+</script>
+</body>
+</html>

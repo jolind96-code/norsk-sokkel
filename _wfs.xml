@@ -1,0 +1,131 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<wfs:FeatureCollection xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.opengis.net/wfs/2.0 http://schemas.opengis.net/wfs/2.0/wfs.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd http://skjema.geonorge.no/SOSI/produktspesifikasjon/Vannkraft/1.3 https://wfs.geonorge.no/skwms1/wfs.vannkraft?SERVICE=WFS&amp;VERSION=2.0.0&amp;REQUEST=DescribeFeatureType&amp;OUTPUTFORMAT=text%2Fxml%3B+subtype%3Dgml%2F3.2.1&amp;TYPENAME=app:EL_Kraftstasjon&amp;NAMESPACES=xmlns(app,http%3A%2F%2Fskjema.geonorge.no%2FSOSI%2Fproduktspesifikasjon%2FVannkraft%2F1.3)" xmlns:wfs="http://www.opengis.net/wfs/2.0" timeStamp="2026-09-02T07:06:37Z" xmlns:gml="http://www.opengis.net/gml/3.2" numberMatched="unknown" numberReturned="0">
+  <!--NOTE: numberReturned attribute should be 'unknown' as well, but this would not validate against the current version of the WFS 2.0 schema (change upcoming). See change request (CR 144): https://portal.opengeospatial.org/files?artifact_id=43925.-->
+  <wfs:member>
+    <app:EL_Kraftstasjon xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Vannkraft/1.3" gml:id="app.el_kraftstasjon.1">
+      <app:identifikasjon>
+        <app:Identifikasjon>
+          <app:lokalId>40b221bc-908c-473e-ab8e-0755547a4b75</app:lokalId>
+          <app:navnerom>https://data.geonorge.no/sosi/energi/vannkraft_utbygd_ikkeutbygd</app:navnerom>
+          <app:versjonId>1.3</app:versjonId>
+        </app:Identifikasjon>
+      </app:identifikasjon>
+      <app:vassdragsNr>016.BA11</app:vassdragsNr>
+      <app:elvenavnHierarki>Vest-vassdraget/Skiensvassdraget</app:elvenavnHierarki>
+      <app:konsesjonStatus>5</app:konsesjonStatus>
+      <app:konsesjonStatusDato>2603-10-15T06:30:00</app:konsesjonStatusDato>
+      <app:status>D</app:status>
+      <app:idriftsattAar>1948</app:idriftsattAar>
+      <app:medium>T</app:medium>
+      <app:datauttaksdato>2026-09-02T03:35:48</app:datauttaksdato>
+      <app:kommune>4018</app:kommune>
+      <app:fylkesNr>40</app:fylkesNr>
+      <app:kvalitet>
+        <app:Posisjonskvalitet>
+          <app:målemetode>99</app:målemetode>
+        </app:Posisjonskvalitet>
+      </app:kvalitet>
+      <app:posisjon>
+        <!--Inlined geometry 'app.el_kraftstasjon.1_APP_POSISJON'-->
+        <gml:Point gml:id="app.el_kraftstasjon.1_APP_POSISJON" srsName="urn:ogc:def:crs:EPSG::4326">
+          <gml:pos>59.281502 9.253044</gml:pos>
+        </gml:Point>
+      </app:posisjon>
+      <app:type>KS</app:type>
+      <app:vannkraftverkNr>1</app:vannkraftverkNr>
+      <app:vannkraftverkNavn>Aall-Ulefoss</app:vannkraftverkNavn>
+      <app:kdbNr>2821</app:kdbNr>
+      <app:spID>07867</app:spID>
+      <app:maksYtelse>5.4</app:maksYtelse>
+      <app:bruttoFallhøyde>10.6</app:bruttoFallhøyde>
+      <app:energiEkvivalent>0.023</app:energiEkvivalent>
+      <app:nedstromVannkraftverkNr>387</app:nedstromVannkraftverkNr>
+      <app:nedstromVannkraftverkNrListe>1,387,205</app:nedstromVannkraftverkNrListe>
+      <app:vannkraftverkEier>RINGERIKSKRAFT PRODUKSJON AS</app:vannkraftverkEier>
+    </app:EL_Kraftstasjon>
+  </wfs:member>
+  <wfs:member>
+    <app:EL_Kraftstasjon xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Vannkraft/1.3" gml:id="app.el_kraftstasjon.2">
+      <app:identifikasjon>
+        <app:Identifikasjon>
+          <app:lokalId>96901e10-6d62-4d5e-949e-41acd1ca2cde</app:lokalId>
+          <app:navnerom>https://data.geonorge.no/sosi/energi/vannkraft_utbygd_ikkeutbygd</app:navnerom>
+          <app:versjonId>1.3</app:versjonId>
+        </app:Identifikasjon>
+      </app:identifikasjon>
+      <app:vassdragsNr>229.20</app:vassdragsNr>
+      <app:elvenavnHierarki>Adamselvvassdraget/indre Laksefjorden øst</app:elvenavnHierarki>
+      <app:konsesjonStatus>5</app:konsesjonStatus>
+      <app:konsesjonStatusDato>2607-12-07T02:20:00</app:konsesjonStatusDato>
+      <app:status>D</app:status>
+      <app:idriftsattAar>1973</app:idriftsattAar>
+      <app:medium>U</app:medium>
+      <app:datauttaksdato>2026-09-02T03:35:48</app:datauttaksdato>
+      <app:kommune>5624</app:kommune>
+      <app:fylkesNr>56</app:fylkesNr>
+      <app:kvalitet>
+        <app:Posisjonskvalitet>
+          <app:målemetode>99</app:målemetode>
+        </app:Posisjonskvalitet>
+      </app:kvalitet>
+      <app:posisjon>
+        <!--Inlined geometry 'app.el_kraftstasjon.2_APP_POSISJON'-->
+        <gml:Point gml:id="app.el_kraftstasjon.2_APP_POSISJON" srsName="urn:ogc:def:crs:EPSG::4326">
+          <gml:pos>70.409578 26.701878</gml:pos>
+        </gml:Point>
+      </app:posisjon>
+      <app:type>K</app:type>
+      <app:vannkraftverkNr>2</app:vannkraftverkNr>
+      <app:vannkraftverkNavn>Adamselv</app:vannkraftverkNavn>
+      <app:kdbNr>5794</app:kdbNr>
+      <app:spID>89301</app:spID>
+      <app:maksYtelse>50.0</app:maksYtelse>
+      <app:bruttoFallhøyde>200.0</app:bruttoFallhøyde>
+      <app:energiEkvivalent>0.46</app:energiEkvivalent>
+      <app:nedstromVannkraftverkNrListe>2</app:nedstromVannkraftverkNrListe>
+      <app:vannkraftverkEier>STATKRAFT ENERGI AS</app:vannkraftverkEier>
+    </app:EL_Kraftstasjon>
+  </wfs:member>
+  <wfs:member>
+    <app:EL_Kraftstasjon xmlns:app="http://skjema.geonorge.no/SOSI/produktspesifikasjon/Vannkraft/1.3" gml:id="app.el_kraftstasjon.3">
+      <app:identifikasjon>
+        <app:Identifikasjon>
+          <app:lokalId>31250988-d7a5-48a4-ab0f-9f77bfff170a</app:lokalId>
+          <app:navnerom>https://data.geonorge.no/sosi/energi/vannkraft_utbygd_ikkeutbygd</app:navnerom>
+          <app:versjonId>1.3</app:versjonId>
+        </app:Identifikasjon>
+      </app:identifikasjon>
+      <app:vassdragsNr>212.B6</app:vassdragsNr>
+      <app:elvenavnHierarki>Altavassdraget</app:elvenavnHierarki>
+      <app:konsesjonStatus>5</app:konsesjonStatus>
+      <app:konsesjonStatusDato>2597-02-20T01:03:20</app:konsesjonStatusDato>
+      <app:status>D</app:status>
+      <app:idriftsattAar>1987</app:idriftsattAar>
+      <app:medium>U</app:medium>
+      <app:datauttaksdato>2026-09-02T03:35:48</app:datauttaksdato>
+      <app:kommune>5601</app:kommune>
+      <app:fylkesNr>56</app:fylkesNr>
+      <app:kvalitet>
+        <app:Posisjonskvalitet>
+          <app:målemetode>99</app:målemetode>
+        </app:Posisjonskvalitet>
+      </app:kvalitet>
+      <app:posisjon>
+        <!--Inlined geometry 'app.el_kraftstasjon.3_APP_POSISJON'-->
+        <gml:Point gml:id="app.el_kraftstasjon.3_APP_POSISJON" srsName="urn:ogc:def:crs:EPSG::4326">
+          <gml:pos>69.717916 23.795677</gml:pos>
+        </gml:Point>
+      </app:posisjon>
+      <app:type>K</app:type>
+      <app:vannkraftverkNr>3</app:vannkraftverkNr>
+      <app:vannkraftverkNavn>Alta</app:vannkraftverkNavn>
+      <app:kdbNr>766</app:kdbNr>
+      <app:spID>85301</app:spID>
+      <app:maksYtelse>153.0</app:maksYtelse>
+      <app:bruttoFallhøyde>185.0</app:bruttoFallhøyde>
+      <app:energiEkvivalent>0.429</app:energiEkvivalent>
+      <app:nedstromVannkraftverkNrListe>3</app:nedstromVannkraftverkNrListe>
+      <app:vannkraftverkEier>STATKRAFT ENERGI AS</app:vannkraftverkEier>
+    </app:EL_Kraftstasjon>
+  </wfs:member>
+</wfs:FeatureCollection>
