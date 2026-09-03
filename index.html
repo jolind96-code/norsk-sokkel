@@ -178,7 +178,7 @@ header h1 em{font-style:normal;color:var(--acc)}
   100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 .tk-since{font-size:10px;color:var(--tx3);margin-top:5px}
 .tk-since span{color:var(--acc);font-variant-numeric:tabular-nums;margin-left:5px}
-.tk2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.tk2{display:grid;grid-template-columns:1fr;gap:10px;margin-top:8px}
 .tk2c{min-width:0}
 .tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -187,6 +187,14 @@ header h1 em{font-style:normal;color:var(--acc)}
   font-variant-numeric:tabular-nums;line-height:1.2;margin:2px 0 1px}
 .tk2c .val.blaa{color:#2563eb}
 .tk2c .rate{font-size:10px;color:var(--tx3);line-height:1.4}
+.tk3{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:2px}
+.tk3c{min-width:0}
+.tk3c .lbl{font-size:9px;color:var(--tx3);display:flex;align-items:center;gap:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk3c .lbl i{width:7px;height:7px;border-radius:2px;display:inline-block;flex:0 0 auto}
+.tk3c .val{font-size:15px;font-weight:700;letter-spacing:-.4px;color:var(--tx);
+  font-variant-numeric:tabular-nums;line-height:1.2;margin:1px 0}
+.tk3c .rate{font-size:9px;color:var(--tx3);line-height:1.35}
 .tk-val{font-size:27px;font-weight:700;letter-spacing:-1px;color:#b45309;
   font-variant-numeric:tabular-nums;line-height:1.15;margin:3px 0 1px}
 .tk-sub{font-size:11px;color:var(--tx2)}
@@ -469,10 +477,27 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
             <div class="val" id="tk-nok" aria-live="off">0 kr</div>
             <div class="rate" id="tk-sub"></div>
           </div>
-          <div class="tk2c">
-            <div class="lbl"><i style="background:#2563eb"></i>Strøm på land</div>
-            <div class="val blaa" id="tk-pow" aria-live="off">0 kr</div>
-            <div class="rate" id="tk-powsub"></div>
+        </div>
+        <div class="tk3">
+          <div class="tk3c">
+            <div class="lbl"><i style="background:#0ea5e9"></i>Vannkraft</div>
+            <div class="val" id="tk-vann" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-vann-sub"></div>
+          </div>
+          <div class="tk3c">
+            <div class="lbl"><i style="background:#14b8a6"></i>Vindkraft</div>
+            <div class="val" id="tk-vind" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-vind-sub"></div>
+          </div>
+          <div class="tk3c">
+            <div class="lbl"><i style="background:#eab308"></i>Solkraft</div>
+            <div class="val" id="tk-sol" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-sol-sub"></div>
+          </div>
+          <div class="tk3c">
+            <div class="lbl"><i style="background:#fb7185"></i>Varmekraft</div>
+            <div class="val" id="tk-varme" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-varme-sub"></div>
           </div>
         </div>
         <div class="tk-fun" id="tk-fun"></div>
@@ -686,9 +711,9 @@ fetch('data.json').then(r=>r.json()).then(d=>{
        Selve kartlaget legges forst til nar brukeren slar det pa. */
     fetch('power.json').then(r=>r.json()).then(pw=>{ POW=pw; return loadSpot(); })
       .then(()=>drawCompare()).catch(()=>{});
-    /* Nasjonale energiform-totaler (SSB, arlig) - kun til KPI-kortet i
-       Land-modulen, lastes uavhengig av om Land-modulen apnes. */
-    fetch('energiformer.json').then(r=>r.json()).then(e=>{ ENGF=e; }).catch(()=>{});
+    /* Nasjonale energiform-totaler (SSB, arlig) - til KPI-kortet i Land-
+       modulen OG til sol/varme-anslagene i inntektstelleren (se drawCompare). */
+    fetch('energiformer.json').then(r=>r.json()).then(e=>{ ENGF=e; drawCompare(); }).catch(()=>{});
   }).catch(()=>{ document.getElementById('tick').style.display='none'; });
 });
 
@@ -1891,21 +1916,24 @@ function drawTick(){
   const sub=`${fmtNok(tickRate)} i sekundet`;
   if(sub!==lastSub){document.getElementById('tk-sub').innerHTML=sub;lastSub=sub;}
 
-  /* Strømtelleren går parallelt, med samme startpunkt. */
-  const pe=document.getElementById('tk-pow');
-  if(powRate){
-    pe.textContent=(Math.round(powRate*s/10)*10).toLocaleString('nb-NO')+' kr';
-    const ps=`${fmtNok(powRate)} i sekundet`;
-    if(ps!==lastPowSub){document.getElementById('tk-powsub').innerHTML=ps;lastPowSub=ps;}
-  }else if(pe.textContent!=='–'){
-    pe.textContent='–'; document.getElementById('tk-powsub').textContent='henter priser…';
+  /* Vann-, vind-, sol- og varmekraft tikker parallelt, med samme startpunkt. */
+  const srcs=[['vann',vannRate],['vind',vindRate],['sol',solRate],['varme',varmeRate]];
+  for(const [k,rate] of srcs){
+    const ve=document.getElementById('tk-'+k), se=document.getElementById('tk-'+k+'-sub');
+    if(rate){
+      ve.textContent=(Math.round(rate*s/10)*10).toLocaleString('nb-NO')+' kr';
+      const ps=`${fmtNok(rate)} i sekundet`;
+      if(lastSrcSub[k]!==ps){se.innerHTML=ps;lastSrcSub[k]=ps;}
+    }else if(ve.textContent!=='–'){
+      ve.textContent='–'; se.textContent='henter priser…';
+    }
   }
 
   const kl=new Date().toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   if(kl!==lastKl){document.getElementById('tk-klokke').textContent=kl;lastKl=kl;}
   drawFun(v);
 }
-let lastTime='',lastSub='',lastFun='',lastKl='',lastPowSub='';
+let lastTime='',lastSub='',lastFun='',lastKl='',lastSrcSub={};
 
 /* Morsom sammenligning. Prisene er grove anslag i 2026-kroner og skal kun
    gi en folelse av storrelsesorden. Velges tilfeldig og byttes hvert 6. sekund. */
@@ -2270,17 +2298,32 @@ const TWH_PER_MILL_SM3_OE = 35500/3600;           // 9,861 TWh per mill Sm³ o.e
 
 /* Sammenligning offshore mot land. Star fast uansett hvilket kartlag som er
    valgt - det er selve poenget med a se de to opp mot hverandre. */
-let powRate=0, powTwh=0;
+let powRate=0, powTwh=0, vannRate=0, vindRate=0, vannTwh=0, vindTwh=0, solRate=0, varmeRate=0;
 function drawCompare(){
   const el=document.getElementById('tk-cmp');
   if(!POW||!SPOT||!tickRate){ el.hidden=true; return; }
   const SEK=365.25*24*3600;
-  powRate=0; powTwh=0;
+  powRate=0; powTwh=0; vannRate=0; vindRate=0; vannTwh=0; vindTwh=0;
   for(const [o,d] of Object.entries(POW.omrader)){
-    const twh=(d.vann_gwh+d.vind_gwh)/1000;
-    powTwh+=twh;
+    const vTwh=d.vann_gwh/1000, wTwh=d.vind_gwh/1000;
+    vannTwh+=vTwh; vindTwh+=wTwh; powTwh+=vTwh+wTwh;
     const p=SPOT[o]; if(p==null) continue;
-    powRate += twh*1e9*p/SEK;                      // TWh -> kWh -> kr/s
+    vannRate += vTwh*1e9*p/SEK;                    // TWh -> kWh -> kr/s
+    vindRate += wTwh*1e9*p/SEK;
+  }
+  powRate=vannRate+vindRate;
+  /* Solkraft/varmekraft har ingen prisomrade-fordeling (kun nasjonale SSB-
+     arstotaler, se energiformer.json), sa de kan ikke prises omrade for
+     omrade slik vann/vind kan. Vi bruker i stedet den volumveide
+     gjennomsnittsprisen fra vann+vind som et anslag - tydelig merket i
+     UI som et estimat, ikke en malt pris for akkurat sol/varme. */
+  solRate=0; varmeRate=0;
+  if(ENGF && powTwh>0){
+    const avgPrKwh=(powRate*SEK)/(powTwh*1e9);      // kr/kWh, volumveid snitt
+    const last=ENGF.ar.length-1;
+    const solTwh=(ENGF.sol[last]||0)/1000, varmeTwh=(ENGF.varme[last]||0)/1000;
+    solRate=solTwh*1e9*avgPrKwh/SEK;
+    varmeRate=varmeTwh*1e9*avgPrKwh/SEK;
   }
   if(!powRate){ el.hidden=true; return; }
   /* Offshore: siste hele ars produksjon i mill Sm³ o.e. -> TWh */
