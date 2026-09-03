@@ -1,0 +1,31 @@
+name: Oppdater produksjonsdata
+
+on:
+  schedule:
+    - cron: "0 6 5 * *"   # kl 06:00 UTC den 5. hver mned (SODIR publiserer mnedlig)
+  workflow_dispatch: {}     # tillat manuell kjring fra Actions-fanen
+
+permissions:
+  contents: write
+
+jobs:
+  oppdater:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Bygg data
+        run: |
+          python build_data.py
+          python build_prices.py
+          python build_partners.py
+          python build_single.py
+      - name: Commit og push hvis noe endret seg
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json prices.json partners.json norsk-sokkel.html
+          git diff --cached --quiet || git commit -m "Automatisk dataoppdatering $(date -u +%Y-%m-%d)"
+          git push
