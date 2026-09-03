@@ -9,11 +9,13 @@
 <script src="vendor/echarts.min.js"></script>
 <style>
 :root{
-  --bg:#0f172a; --panel:#131f37; --card:#1e293b; --card2:#243449;
-  --line:#334155; --tx:#f7f5f2; --tx2:#94a3b8; --tx3:#8fa0b8;
-  --acc:#38bdf8; --acc2:#0ea5e9;
-  --oil:#34d399; --gas:#f87171; --both:#fbbf24; --con:#c084fc;
-  --r:10px;
+  --bg:#f7f8fa; --panel:#ffffff; --card:#f3f4f6; --card2:#e9ebef;
+  --line:#e5e7eb; --tx:#0f172a; --tx2:#475569; --tx3:#64748b;
+  --acc:#4f46e5; --acc2:#4338ca;
+  --oil:#10b981; --gas:#ef4444; --both:#f59e0b; --con:#a855f7;
+  --shadow:0 1px 2px rgba(15,23,42,.05), 0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 4px 14px rgba(15,23,42,.10);
+  --r:12px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
@@ -23,7 +25,7 @@ a{color:var(--acc)}
 
 #app{display:grid;grid-template-columns:320px 1fr 420px;grid-template-rows:56px 1fr;height:100vh}
 header{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 18px;
-  background:var(--panel);border-bottom:1px solid var(--line)}
+  background:var(--panel);border-bottom:1px solid var(--line);box-shadow:var(--shadow)}
 header h1{font-size:15px;font-weight:700;margin:0;letter-spacing:-.2px}
 header h1 em{font-style:normal;color:var(--acc)}
 .sub{font-size:11px;color:var(--tx3)}
@@ -34,14 +36,14 @@ header h1 em{font-style:normal;color:var(--acc)}
 .chip{background:var(--card);border:1px solid var(--line);color:var(--tx2);
   padding:4px 10px;border-radius:999px;font-size:11px;cursor:pointer;transition:.13s;white-space:nowrap}
 .chip:hover{border-color:var(--tx3);color:var(--tx)}
-.chip.on{background:var(--acc);border-color:var(--acc);color:#082f49;font-weight:600}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
 .chip .n{opacity:.65;font-size:10px;margin-left:3px}
 /* Kartlag-knapper (strøm/prisområder): av/på var for lite tydelig - lett a
    forveksle med de vanlige filter-chipsene som alltid star noytrale nar de
    ikke er valgt. PA-tilstanden far na en tydelig ramme/glow i tillegg til
    fylt farge, pluss et hakemerke i teksten (fargeuavhengig signal). */
 .chip.layer{font-weight:600}
-.chip.layer.on{box-shadow:0 0 0 2px rgba(56,189,248,.35);}
+.chip.layer.on{box-shadow:0 0 0 2px rgba(79,70,229,.3);}
 /* Hav/Land - de to hovedmodulene, tydelig segmentert bryter, ikke en chip
    blant andre - dette ER hovednavigasjonen mellom to likeverdige datasett. */
 .havland{display:flex;background:var(--card);border:1px solid var(--line);
@@ -49,7 +51,7 @@ header h1 em{font-style:normal;color:var(--acc)}
 .hlbtn{background:transparent;border:none;color:var(--tx2);padding:5px 14px;
   border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;transition:.13s;white-space:nowrap}
 .hlbtn:hover{color:var(--tx)}
-.hlbtn.on{background:var(--acc);color:#082f49;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.hlbtn.on{background:var(--acc);color:#fff;box-shadow:0 1px 4px rgba(79,70,229,.35)}
 
 /* venstre */
 #side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -67,12 +69,12 @@ header h1 em{font-style:normal;color:var(--acc)}
 #active .lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;
   width:100%;margin-bottom:1px}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 6px 3px 8px;
-  border-radius:20px;background:rgba(56,189,248,.13);border:1px solid rgba(56,189,248,.35);
-  color:#bae6fd;white-space:nowrap}
-.pill.sel{background:rgba(250,204,21,.13);border-color:rgba(250,204,21,.4);color:#fde68a}
+  border-radius:20px;background:rgba(79,70,229,.08);border:1px solid rgba(79,70,229,.28);
+  color:#4338ca;white-space:nowrap}
+.pill.sel{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);color:#b45309}
 .pill b{font-weight:600}
 .pill .x{cursor:pointer;opacity:.6;font-size:13px;line-height:1;padding:0 1px}
-.pill .x:hover{opacity:1;color:#fff}
+.pill .x:hover{opacity:1;color:var(--tx)}
 .pill.none{background:transparent;border-color:var(--line);color:var(--tx3)}
 #reset{margin-left:auto;font-size:11px;padding:4px 9px;border-radius:20px;cursor:pointer;
   background:transparent;border:1px solid var(--line);color:var(--tx2)}
@@ -90,7 +92,7 @@ header h1 em{font-style:normal;color:var(--acc)}
 .row{display:grid;grid-template-columns:22px 1fr auto;gap:9px;align-items:center;
   padding:7px 9px;cursor:pointer;border-radius:8px;position:relative;overflow:hidden}
 .row:hover{background:var(--card)}
-.row.sel{background:#0c3a52;box-shadow:inset 0 0 0 1px var(--acc)}
+.row.sel{background:#eef2ff;box-shadow:inset 0 0 0 1px var(--acc)}
 .row .rk{font-size:10px;color:var(--tx3);text-align:right;font-variant-numeric:tabular-nums}
 .row .nm{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:1}
 .row .nm small{display:block;color:var(--tx3);font-size:10px;font-weight:400}
@@ -101,10 +103,10 @@ header h1 em{font-style:normal;color:var(--acc)}
 /* kart */
 #mapwrap{position:relative;min-width:0}
 #map{position:absolute;inset:0}
-.maplibregl-ctrl-attrib{background:rgba(15,23,42,.82)!important;font-size:10px}
+.maplibregl-ctrl-attrib{background:rgba(255,255,255,.85)!important;font-size:10px}
 .maplibregl-ctrl-attrib a{color:var(--tx3)!important}
-.glass{background:rgba(19,31,55,.93);border:1px solid var(--line);border-radius:var(--r);
-  backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.glass{background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--r);
+  backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(15,23,42,.12)}
 #legend{position:absolute;left:14px;bottom:14px;z-index:5;padding:10px 12px 9px;font-size:10.5px;max-width:214px}
 #legend b{display:block;font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--tx2);margin-bottom:7px;padding-right:22px}
 #sizeleg{display:flex;align-items:flex-end;gap:10px;height:38px;margin-bottom:3px}
@@ -128,16 +130,16 @@ header h1 em{font-style:normal;color:var(--acc)}
 .lg-row{display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--tx2)}
 #timebar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:5;
   padding:10px 16px;display:flex;align-items:center;gap:13px;min-width:600px}
-#play{background:var(--acc);border:0;color:#082f49;width:30px;height:30px;border-radius:50%;
+#play{background:var(--acc);border:0;color:#fff;width:30px;height:30px;border-radius:50%;
   cursor:pointer;font-size:12px;flex:none;font-weight:700}
 #year{flex:1;accent-color:var(--acc);height:4px}
 #yearlbl{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums;min-width:80px;text-align:right;line-height:1.05}
 #yearlbl span{font-size:9px;color:var(--both);display:block;font-weight:500}
-.maplibregl-popup-content{background:rgba(15,23,42,.97);border:1px solid var(--line);
-  border-radius:8px;color:var(--tx);font-size:12px;padding:9px 11px;box-shadow:0 6px 22px rgba(0,0,0,.55)}
+.maplibregl-popup-content{background:rgba(255,255,255,.98);border:1px solid var(--line);
+  border-radius:8px;color:var(--tx);font-size:12px;padding:9px 11px;box-shadow:0 6px 22px rgba(15,23,42,.16)}
 .maplibregl-popup-tip{display:none}
 .maplibregl-popup-close-button{color:#94a3b8;font-size:16px;padding:2px 6px;top:2px;right:2px}
-.maplibregl-popup-close-button:hover{background:rgba(148,163,184,.15);color:#e2e8f0}
+.maplibregl-popup-close-button:hover{background:rgba(148,163,184,.15);color:#0f172a}
 
 /* høyre */
 #charts{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;min-height:0}
@@ -147,26 +149,26 @@ header h1 em{font-style:normal;color:var(--acc)}
 .chart{width:100%;height:195px}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .kpi{background:var(--card);border-radius:9px;padding:9px 11px}
-.kpi .k{font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--tx3);font-weight:600}
+.kpi .k{font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--tx2);font-weight:600}
 .kpi .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;letter-spacing:-.4px}
 .kpi .u{font-size:9px;color:var(--tx3);margin-top:1px}
 .note{font-size:11px;color:var(--tx3);margin-top:9px;line-height:1.55}
 .note b{color:var(--tx2);font-weight:600}
-.scope{font-size:11px;color:var(--acc);background:rgba(56,189,248,.09);
+.scope{font-size:11px;color:var(--acc);background:rgba(79,70,229,.08);
   border-left:2px solid var(--acc);padding:5px 9px;border-radius:0 6px 6px 0;margin-bottom:9px}
 #tick{margin-top:11px;padding:11px 12px;border-radius:var(--r);
-  background:linear-gradient(135deg,rgba(250,204,21,.10),rgba(56,189,248,.07));
-  border:1px solid rgba(250,204,21,.22)}
+  background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(79,70,229,.06));
+  border:1px solid rgba(245,158,11,.25)}
 .tk-head{font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);
   display:flex;align-items:center;justify-content:space-between}
 .tk-head span{color:var(--acc);font-variant-numeric:tabular-nums}
-.live{display:inline-flex;align-items:center;gap:6px;color:#4ade80 !important;font-weight:700}
-.live i{width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;
-  box-shadow:0 0 0 0 rgba(74,222,128,.75);animation:puls 1.8s infinite}
+.live{display:inline-flex;align-items:center;gap:6px;color:#16a34a !important;font-weight:700}
+.live i{width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;
+  box-shadow:0 0 0 0 rgba(22,163,74,.75);animation:puls 1.8s infinite}
 @keyframes puls{
-  0%{box-shadow:0 0 0 0 rgba(74,222,128,.7)}
-  70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}
-  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+  0%{box-shadow:0 0 0 0 rgba(22,163,74,.7)}
+  70%{box-shadow:0 0 0 7px rgba(22,163,74,0)}
+  100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 .tk-since{font-size:10px;color:var(--tx3);margin-top:5px}
 .tk-since span{color:var(--acc);font-variant-numeric:tabular-nums;margin-left:5px}
 .tk2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
@@ -174,15 +176,15 @@ header h1 em{font-style:normal;color:var(--acc)}
 .tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tk2c .lbl i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
-.tk2c .val{font-size:21px;font-weight:700;letter-spacing:-.8px;color:#fde68a;
+.tk2c .val{font-size:21px;font-weight:700;letter-spacing:-.8px;color:#b45309;
   font-variant-numeric:tabular-nums;line-height:1.2;margin:2px 0 1px}
-.tk2c .val.blaa{color:#7dd3fc}
+.tk2c .val.blaa{color:#2563eb}
 .tk2c .rate{font-size:10px;color:var(--tx3);line-height:1.4}
-.tk-val{font-size:27px;font-weight:700;letter-spacing:-1px;color:#fde68a;
+.tk-val{font-size:27px;font-weight:700;letter-spacing:-1px;color:#b45309;
   font-variant-numeric:tabular-nums;line-height:1.15;margin:3px 0 1px}
 .tk-sub{font-size:11px;color:var(--tx2)}
-.tk-fun{font-size:11.5px;color:#fcd34d;margin-top:5px;line-height:1.45;min-height:16px}
-.tk-cmp{margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,.18)}
+.tk-fun{font-size:11.5px;color:#b45309;margin-top:5px;line-height:1.45;min-height:16px}
+.tk-cmp{margin-top:9px;padding-top:8px;border-top:1px solid rgba(148,163,184,.25)}
 .tk-cmp .chead{display:grid;grid-template-columns:118px 1fr 62px;gap:7px;
   font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)}
 .tk-cmp .chead span:first-child{grid-column:2}
@@ -192,7 +194,7 @@ header h1 em{font-style:normal;color:var(--acc)}
 .crad .nv{color:var(--tx2);display:flex;align-items:center;gap:5px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crad .nv i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
-.crad .sp{height:6px;background:rgba(2,6,16,.5);border-radius:3px;overflow:hidden}
+.crad .sp{height:6px;background:rgba(15,23,42,.08);border-radius:3px;overflow:hidden}
 .crad .sp b{display:block;height:100%;border-radius:3px}
 .crad .tw,.crad .kr{text-align:right;font-variant-numeric:tabular-nums;
   color:var(--tx);font-weight:600}
@@ -209,12 +211,12 @@ header h1 em{font-style:normal;color:var(--acc)}
   padding:3px 8px;border:1px solid var(--line);border-radius:20px;white-space:nowrap}
 #kilde:hover{color:var(--acc);border-color:var(--acc)}
 #uoff{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-  color:#fbbf24;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.4);
+  color:#b45309;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);
   padding:3px 9px;border-radius:20px;margin-left:14px;white-space:nowrap;cursor:help}
 .lg-sep{height:1px;background:var(--line);margin:7px 0 6px}
 .lg-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:4px}
 .bd{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;
-  border:1.4px solid rgba(255,255,255,.55)}
+  border:1.4px solid rgba(15,23,42,.18)}
 #legend.mini .lg-body{display:none}
 #legend.mini{padding-bottom:8px}
 #lg-lukk{position:absolute;top:6px;right:6px;width:19px;height:19px;line-height:1;
@@ -235,29 +237,29 @@ header h1 em{font-style:normal;color:var(--acc)}
 #spot .pr{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx)}
 #spot .foot{font-size:9px;color:var(--tx3);margin-top:7px;line-height:1.5;
   border-top:1px solid var(--line);padding-top:6px}
-#spot .verdi{color:#fde68a;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+#spot .verdi{color:#b45309;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
 .prt{margin-top:11px}
 .prt-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:6px}
 .prt-r{display:grid;grid-template-columns:118px 1fr 46px;align-items:center;
   gap:8px;font-size:11px;margin-bottom:4px}
 .prt-b{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
 .prt-b i{display:block;height:100%;border-radius:3px;background:var(--acc)}
-.prt-r.op .prt-b i{background:#fbbf24}
+.prt-r.op .prt-b i{background:var(--both)}
 .prt-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--tx2)}
 .prt-r.op .prt-n{color:var(--tx);font-weight:600}
 .prt-p{text-align:right;font-variant-numeric:tabular-nums;color:var(--tx2)}
-.prt-r.op .prt-p{color:#fde68a;font-weight:600}
+.prt-r.op .prt-p{color:#b45309;font-weight:600}
 .inc{margin-top:11px;padding:9px 10px;border-radius:var(--r);
-  background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.2)}
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3)}
 .inc-h{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)}
-.inc-v{font-size:19px;font-weight:700;color:#fde68a;letter-spacing:-.5px;
+.inc-v{font-size:19px;font-weight:700;color:#b45309;letter-spacing:-.5px;
   font-variant-numeric:tabular-nums;margin:2px 0 1px}
 .inc-s{font-size:10px;color:var(--tx3)}
-#hjelp{position:absolute;inset:0;background:rgba(2,6,16,.82);z-index:60;
+#hjelp{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:60;
   display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
 #hjelp.skjult{display:none}
-.hb{max-width:560px;max-height:86vh;overflow-y:auto;background:var(--pnl);border:1px solid var(--line);
-  border-radius:14px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.hb{max-width:560px;max-height:86vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;padding:22px 24px;box-shadow:0 20px 60px rgba(15,23,42,.2)}
 .hb h2{font-size:19px;margin:0 0 3px;letter-spacing:-.4px}
 .hb .lead{font-size:12.5px;color:var(--tx2);margin-bottom:14px;line-height:1.6}
 .hb ol{margin:0 0 14px;padding-left:17px;font-size:12px;color:var(--tx2);line-height:1.75}
@@ -266,20 +268,20 @@ header h1 em{font-style:normal;color:var(--acc)}
 .hb .fk{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 9px}
 .hb .fk b{display:block;font-size:13px;color:var(--acc)}
 .hb .fk span{font-size:10px;color:var(--tx3);line-height:1.45;display:block;margin-top:2px}
-.hb button{background:var(--acc);color:#04121f;border:0;border-radius:8px;
+.hb button{background:var(--acc);color:#fff;border:0;border-radius:8px;
   padding:9px 18px;font-size:12.5px;font-weight:600;cursor:pointer}
 .hb .liten{font-size:10px;color:var(--tx3);margin-top:11px;line-height:1.5}
 .metode{font-size:11px;color:var(--tx2);line-height:1.65;background:var(--bg);
-  border-left:2px solid rgba(250,204,21,.5);border-radius:0 8px 8px 0;
+  border-left:2px solid rgba(245,158,11,.6);border-radius:0 8px 8px 0;
   padding:9px 12px;margin-bottom:14px}
 .metode b{color:var(--tx)}
 .kilder{font-size:11px;color:var(--tx2);line-height:1.6;background:var(--bg);
-  border-left:2px solid rgba(56,189,248,.5);border-radius:0 8px 8px 0;
+  border-left:2px solid rgba(79,70,229,.5);border-radius:0 8px 8px 0;
   padding:9px 12px;margin-bottom:14px}
 .kilder b{color:var(--tx)}
 .kilder ul{margin:7px 0 0;padding-left:16px}
 .kilder li{margin-bottom:5px}
-.kilder a{color:#7dd3fc}
+.kilder a{color:var(--acc)}
 .kilder i{color:var(--tx3);font-style:italic}
 .enh{color:var(--acc);font-weight:600;text-transform:none;letter-spacing:0;margin-left:7px}
 #hjelpknapp{font-size:10px;color:var(--tx3);background:transparent;border:1px solid var(--line);
@@ -296,7 +298,7 @@ header h1 em{font-style:normal;color:var(--acc)}
   border-radius:50%;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 ::-webkit-scrollbar{width:9px;height:9px}
-::-webkit-scrollbar-thumb{background:#334155;border-radius:5px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:5px}
 ::-webkit-scrollbar-track{background:transparent}
 table.res{width:100%;margin-top:12px;font-size:11px;border-collapse:collapse}
 table.res td{padding:3px 0}
@@ -455,12 +457,12 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
         <div class="tk-since">Siden du åpnet siden<span id="tk-time"></span></div>
         <div class="tk2">
           <div class="tk2c">
-            <div class="lbl"><i style="background:#fbbf24"></i>Olje og gass</div>
+            <div class="lbl"><i style="background:#f59e0b"></i>Olje og gass</div>
             <div class="val" id="tk-nok" aria-live="off">0 kr</div>
             <div class="rate" id="tk-sub"></div>
           </div>
           <div class="tk2c">
-            <div class="lbl"><i style="background:#38bdf8"></i>Strøm på land</div>
+            <div class="lbl"><i style="background:#2563eb"></i>Strøm på land</div>
             <div class="val blaa" id="tk-pow" aria-live="off">0 kr</div>
             <div class="rate" id="tk-powsub"></div>
           </div>
@@ -512,7 +514,7 @@ const METRICS=[
 const BOE=6.29;
 const NGL_OE=1.9;   // 1 tonn NGL = 1,9 Sm³ o.e. (gjelder reservetabellen)
 const uLabel=k=>{const m=METRICS.find(x=>x.k===k)||METRICS[0]; return unit==='boe'?m.b:m.u;};
-const HC={'OIL':'#34d399','GAS':'#f87171','OIL/GAS':'#fbbf24','GAS/CONDENSATE':'#c084fc'};
+const HC={'OIL':'#10b981','GAS':'#ef4444','OIL/GAS':'#f59e0b','GAS/CONDENSATE':'#a855f7'};
 const HCN={'OIL':'Olje','GAS':'Gass','OIL/GAS':'Olje/gass','GAS/CONDENSATE':'Gass/kond.'};
 const AREAN={'NORTH SEA':'Nordsjøen','NORWEGIAN SEA':'Norskehavet','BARENTS SEA':'Barentshavet',
   'BARENTS SEA SOUTH':'Barentshavet sør','BARENTS SEA NORTH':'Barentshavet nord',
@@ -815,7 +817,7 @@ function buildMap(){
   const BOUNDS=[[-12,53.5],[45,84]];
   map=new maplibregl.Map({
     container:'map',
-    style:'https://tiles.openfreemap.org/styles/dark',
+    style:'https://tiles.openfreemap.org/styles/positron',
     center:[8.0,65.5], zoom:4.0, minZoom:3.6, maxZoom:11,
     maxBounds:BOUNDS,
     attributionControl:{compact:true}
@@ -840,15 +842,15 @@ function buildMap(){
     /* Sokkelgrensen: sammenslått ytterkontur av SODIRs 41 delområder (lag 804).
        Fire lag: svak innvendig tone, mykt skjær, stiplet strek, navn langs linja. */
     map.addLayer({id:'ncs-fill',type:'fill',source:'ncs',
-      paint:{'fill-color':'#38bdf8','fill-opacity':0.045}});
+      paint:{'fill-color':'#4f46e5','fill-opacity':0.035}});
     map.addLayer({id:'ncs-glow',type:'line',source:'ncs',
-      paint:{'line-color':'#38bdf8','line-width':['interpolate',['linear'],['zoom'],3,6,8,16],
-             'line-opacity':0.13,'line-blur':['interpolate',['linear'],['zoom'],3,4,8,10],
+      paint:{'line-color':'#4f46e5','line-width':['interpolate',['linear'],['zoom'],3,6,8,16],
+             'line-opacity':0.10,'line-blur':['interpolate',['linear'],['zoom'],3,4,8,10],
              'line-offset':['interpolate',['linear'],['zoom'],3,3,8,8]}});
     map.addLayer({id:'ncs-line',type:'line',source:'ncs',
       layout:{'line-cap':'butt','line-join':'round'},
-      paint:{'line-color':'#7dd3fc','line-width':['interpolate',['linear'],['zoom'],3,1.2,8,2],
-             'line-opacity':0.75,'line-dasharray':[4,3]}});
+      paint:{'line-color':'#4f46e5','line-width':['interpolate',['linear'],['zoom'],3,1.2,8,2],
+             'line-opacity':0.55,'line-dasharray':[4,3]}});
 
     map.addLayer({id:'poly-fill',type:'fill',source:'polys',
       /* Dempes gradvis fra zoom 7 og oppover: i tette klynger (Tampen mfl.)
@@ -898,7 +900,7 @@ function buildMap(){
     map.addLayer({id:'bub',type:'circle',source:'pts',
       paint:{'circle-radius':zr,'circle-color':['get','color'],
              'circle-opacity':['case',['get','sel'],0.62,['get','zero'],0.10,0.32],
-             'circle-stroke-color':['case',['get','sel'],'#ffffff',['get','color']],
+             'circle-stroke-color':['case',['get','sel'],'#0f172a',['get','color']],
              'circle-stroke-width':['case',['get','sel'],2.6,['get','zero'],1,1.5],
              'circle-stroke-opacity':['case',['get','sel'],1,['get','zero'],0.5,0.9]}});
 
@@ -934,7 +936,7 @@ function buildMap(){
                4,['case',['>',['get','pop'],100000],2.4,1.4],
                9,['case',['>',['get','pop'],100000],4.2,2.6]],
              'circle-color':'#94a3b8','circle-opacity':0.7,
-             'circle-stroke-color':'#0f172a','circle-stroke-width':0.8}});
+             'circle-stroke-color':'#ffffff','circle-stroke-width':1}});
     map.addLayer({id:'city-lbl',type:'symbol',source:'cities',
       layout:{'text-field':['get','name'],
               'text-font':['Noto Sans Regular'],
@@ -944,7 +946,7 @@ function buildMap(){
               'text-anchor':'left','text-offset':[0.55,0],
               'text-allow-overlap':false,'text-padding':2.5,
               'symbol-sort-key':['get','rank']},   // storste by forst -> vinner plass
-      paint:{'text-color':'#8fa3bb','text-halo-color':'#0f172a','text-halo-width':1.6}});
+      paint:{'text-color':'#64748b','text-halo-color':'#ffffff','text-halo-width':1.6}});
 
     map.addLayer({id:'lbl',type:'symbol',source:'pts',
       layout:{'text-field':['get','name'],
@@ -956,8 +958,8 @@ function buildMap(){
               'text-allow-overlap':false,
               'text-padding':1.5,
               'symbol-sort-key':['get','rank']},
-      paint:{'text-color':['case',['get','sel'],'#ffffff',['get','zero'],'#8092a8','#cbd5e1'],
-             'text-halo-color':'#0f172a','text-halo-width':1.8}});
+      paint:{'text-color':['case',['get','sel'],'#4f46e5',['get','zero'],'#94a3b8','#1e293b'],
+             'text-halo-color':'#ffffff','text-halo-width':2}});
 
     /* Navn langs grensa. Lagt til etter feltnavnene, så feltene vinner ved kollisjon. */
     map.addLayer({id:'ncs-label',type:'symbol',source:'ncs',
@@ -966,8 +968,8 @@ function buildMap(){
               'text-size':['interpolate',['linear'],['zoom'],3,9,6,10.5,9,11.5],
               'text-letter-spacing':0.26,'symbol-spacing':420,
               'text-offset':[0,-0.9],'text-max-angle':28,'text-padding':4},
-      paint:{'text-color':'#7dd3fc','text-opacity':0.72,
-             'text-halo-color':'#0f172a','text-halo-width':2.2}});
+      paint:{'text-color':'#4f46e5','text-opacity':0.6,
+             'text-halo-color':'#ffffff','text-halo-width':2.2}});
 
     /* ÉN klikk-handler for hele kartet. Tidligere hadde bade 'bub' og
        'poly-fill' hver sin handler, og traff du begge samtidig ble select()
@@ -1049,7 +1051,7 @@ function buildMap(){
       popup.setLngLat(e.lngLat).setHTML(
         `<b>${p.name}</b><br><span style="color:#94a3b8">${fmt(+p.v,+p.v<10?1:0)} ${uLabel(metric)}</span>
          <br><span style="color:#64748b;font-size:11px">${p.op} · ${hcN(p.hc)}</span>
-         ${fl?`<br><span style="color:#7dd3fc;font-size:11px">${fl}${n>1?` · ${n} innretninger`:''}</span>`:''}`)
+         ${fl?`<br><span style="color:#4f46e5;font-size:11px">${fl}${n>1?` · ${n} innretninger`:''}</span>`:''}`)
         .addTo(map);
     });
     mapReady=true; refresh(); fitToFields();
@@ -1292,12 +1294,13 @@ function drawKpiNat(){
 }
 
 /* ---------- grafer ---------- */
-const AX={axisLine:{lineStyle:{color:'#334155'}},axisLabel:{color:'#64748b',fontSize:10},
-  splitLine:{lineStyle:{color:'#1e293b'}},axisTick:{show:false}};
+const AX={axisLine:{lineStyle:{color:'#e5e7eb'}},axisLabel:{color:'#64748b',fontSize:10},
+  splitLine:{lineStyle:{color:'#f1f5f9'}},axisTick:{show:false}};
 const BASE={backgroundColor:'transparent',
-  tooltip:{trigger:'axis',backgroundColor:'rgba(15,23,42,.97)',borderColor:'#334155',
-    textStyle:{color:'#f7f5f2',fontSize:11},axisPointer:{type:'shadow'}},
-  legend:{top:0,textStyle:{color:'#94a3b8',fontSize:10},itemWidth:9,itemHeight:9,icon:'roundRect'}};
+  tooltip:{trigger:'axis',backgroundColor:'rgba(255,255,255,.97)',borderColor:'#e5e7eb',
+    textStyle:{color:'#0f172a',fontSize:11},axisPointer:{type:'shadow'},
+    extraCssText:'box-shadow:0 6px 20px rgba(15,23,42,.12)'},
+  legend:{top:0,textStyle:{color:'#64748b',fontSize:10},itemWidth:9,itemHeight:9,icon:'roundRect'}};
 const yrs=()=>Array.from({length:YMAX-YMIN+1},(_,i)=>YMIN+i);
 /* Ved valgt felt: vis kun feltets egne produksjonsar (+1 ars margin for),
    ikke hele 1971-tallrekken. Et felt som Johan Sverdrup (2019-) far ellers
@@ -1307,8 +1310,8 @@ function fieldYrs(f){
   const y0=Math.max(YMIN,f.firstYear-1), y1=Math.min(YMAX,f.lastYear||YMAX);
   return Array.from({length:y1-y0+1},(_,i)=>y0+i);
 }
-const PAL=['#38bdf8','#34d399','#fbbf24','#f87171','#c084fc','#2dd4bf','#fb923c','#818cf8'];
-const TYPEC={oil:'#34d399',gas:'#f87171',ngl:'#38bdf8',con:'#c084fc'};
+const PAL=['#4f46e5','#10b981','#f59e0b','#ef4444','#a855f7','#0ea5e9','#fb923c','#6366f1'];
+const TYPEC={oil:'#10b981',gas:'#ef4444',ngl:'#0ea5e9',con:'#a855f7'};
 
 function area(name,data,color){return{name,type:'line',stack:'s',areaStyle:{opacity:.62},
   symbol:'none',lineStyle:{width:0},data,color};}
@@ -1359,7 +1362,7 @@ function drawTs(){
     scope=`${filtered.length} felt i utvalget — ${m.l}, 8 største felt + øvrige`;
     series=top.map((f,ix)=>area(tc(f.name),S(f)[metric].map(C),PAL[ix%PAL.length]));
     series.push(area('Øvrige',yrs().map((_,i)=>
-      C(filtered.filter(f=>!top.includes(f)).reduce((s,f)=>s+S(f)[metric][i],0))),'#475569'));
+      C(filtered.filter(f=>!top.includes(f)).reduce((s,f)=>s+S(f)[metric][i],0))),'#94a3b8'));
   }
   document.getElementById('tsscope').textContent=
     `${cum?'Kumulativt':'Per år'} · ${scope}`;
@@ -1373,7 +1376,7 @@ function drawTs(){
     series[0]={...series[0],markLine:{silent:true,symbol:'none',
       label:{show:false},                // echarts viser ellers arstallet ved linjen som default,
                                           // og det stakk inn i produkt-legenden over grafen
-      lineStyle:{color:'#f7f5f2',width:1,type:'dashed',opacity:.4},
+      lineStyle:{color:'#0f172a',width:1,type:'dashed',opacity:.35},
       data:[{xAxis:String(year)}]}};
   }
 
@@ -1383,10 +1386,10 @@ function drawTs(){
     xAxis:{type:'category',data:cyrs,boundaryGap:false,...AX},
     yAxis:{type:'value',name:tsMode==='verdi'?'mrd kr':uLabel((selected||tsMode==='type')?'oe':metric),nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
     series,
-    dataZoom:[{type:'inside'},{type:'slider',height:13,bottom:4,borderColor:'#334155',
-      fillerColor:'rgba(56,189,248,.13)',handleStyle:{color:'#38bdf8'},
+    dataZoom:[{type:'inside'},{type:'slider',height:13,bottom:4,borderColor:'#e5e7eb',
+      fillerColor:'rgba(79,70,229,.10)',handleStyle:{color:'#4f46e5'},
       textStyle:{color:'#64748b',fontSize:9},moveHandleSize:3,
-      dataBackground:{lineStyle:{color:'#334155'},areaStyle:{color:'#1e293b'}}}]
+      dataBackground:{lineStyle:{color:'#e5e7eb'},areaStyle:{color:'#f1f5f9'}}}]
   },true);
 }
 /* Kraftverk har ingen ar-for-ar-serie, sa "Produksjon over tid" blir i Land-modus
@@ -1428,15 +1431,15 @@ function drawRank(){
     tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,2)}</b> ${uLabel(metric)}`},
     xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
     yAxis:{type:'category',data:rows.map(r=>tc(r.f.name)),...AX,
-      axisLabel:{color:selected?'#94a3b8':'#cbd5e1',fontSize:10.5,fontWeight:500},
+      axisLabel:{color:selected?'#94a3b8':'#334155',fontSize:10.5,fontWeight:500},
       splitLine:{show:false}},
     series:[{type:'bar',barWidth:'72%',
       showBackground:true,
-      backgroundStyle:{color:'rgba(148,163,184,.10)',borderRadius:[0,3,3,0]},
+      backgroundStyle:{color:'rgba(148,163,184,.12)',borderRadius:[0,3,3,0]},
       data:rows.map(r=>({value:+r.v.toFixed(3),itemStyle:{color:hcC(r.f.hcType),
         opacity:selected&&selected!==r.f.id?.32:1,borderRadius:[0,3,3,0],
-        borderColor:selected===r.f.id?'#fff':'transparent',borderWidth:1.6}})),
-      label:{show:true,position:'right',color:'#cbd5e1',fontSize:9.5,fontWeight:600,
+        borderColor:selected===r.f.id?'#0f172a':'transparent',borderWidth:1.6}})),
+      label:{show:true,position:'right',color:'#334155',fontSize:9.5,fontWeight:600,
         formatter:p=>fmt(p.value,p.value<10?1:0)}}]
   },true);
 }
@@ -1452,16 +1455,16 @@ function drawRankLand(){
     tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,0)}</b> GWh/år`},
     xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
     yAxis:{type:'category',data:rows.map(p=>p.n),...AX,
-      axisLabel:{color:selectedPower!=null?'#94a3b8':'#cbd5e1',fontSize:10.5,fontWeight:500},
+      axisLabel:{color:selectedPower!=null?'#94a3b8':'#334155',fontSize:10.5,fontWeight:500},
       splitLine:{show:false}},
     series:[{type:'bar',barWidth:'72%',
       showBackground:true,
-      backgroundStyle:{color:'rgba(148,163,184,.10)',borderRadius:[0,3,3,0]},
+      backgroundStyle:{color:'rgba(148,163,184,.12)',borderRadius:[0,3,3,0]},
       data:rows.map(p=>{const rank=POW.verk.indexOf(p);
         return {value:+p.gwh.toFixed(0),itemStyle:{color:POWC[p.k],
         opacity:selectedPower!=null&&selectedPower!==rank?.32:1,borderRadius:[0,3,3,0],
-        borderColor:selectedPower===rank?'#fff':'transparent',borderWidth:1.6}};}),
-      label:{show:true,position:'right',color:'#cbd5e1',fontSize:9.5,fontWeight:600,
+        borderColor:selectedPower===rank?'#0f172a':'transparent',borderWidth:1.6}};}),
+      label:{show:true,position:'right',color:'#334155',fontSize:9.5,fontWeight:600,
         formatter:p=>fmt(p.value,0)}}]
   },true);
 }
@@ -1491,21 +1494,21 @@ function popupHtmlField(f){
   const peak=Math.max(...f.s.oe), py=YMIN+f.s.oe.indexOf(peak);
   return `<div style="font-size:14px;font-weight:700;margin-bottom:2px">
       <span class="dot" style="background:${hcC(f.hcType)}"></span>${tc(f.name)}</div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:7px">${tc(f.operator)} · <b style="color:#cbd5e1">${statN(f.status)}</b></div>
-    <div style="font-size:12px;line-height:1.7;color:#cbd5e1">
-      ${year}: <b style="color:#e2e8f0">${fmt(cv(f.s.oe[i]),2)} ${uLabel('oe')}</b><br>
-      Kumulativt: <b style="color:#e2e8f0">${fmt(cv(tot),0)} ${uLabel('oe')}</b><br>
-      Toppår: <b style="color:#e2e8f0">${py}</b> (${fmt(cv(peak),1)} ${uLabel('oe')})
+    <div style="font-size:11px;color:#64748b;margin-bottom:7px">${tc(f.operator)} · <b style="color:#334155">${statN(f.status)}</b></div>
+    <div style="font-size:12px;line-height:1.7;color:#334155">
+      ${year}: <b style="color:#0f172a">${fmt(cv(f.s.oe[i]),2)} ${uLabel('oe')}</b><br>
+      Kumulativt: <b style="color:#0f172a">${fmt(cv(tot),0)} ${uLabel('oe')}</b><br>
+      Toppår: <b style="color:#0f172a">${py}</b> (${fmt(cv(peak),1)} ${uLabel('oe')})
     </div>`;
 }
 function popupHtmlPower(p){
   return `<div style="font-size:14px;font-weight:700;margin-bottom:2px">
       <span class="dot" style="background:${POWC[p.k]}"></span>${p.n}</div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:7px">${p.eier||'Ukjent eier'} · <b style="color:#cbd5e1">${p.k==='vann'?'Vannkraft':'Vindkraft'}</b></div>
-    <div style="font-size:12px;line-height:1.7;color:#cbd5e1">
-      Effekt: <b style="color:#e2e8f0">${fmt(+p.mw,0)} MW</b><br>
-      Årsproduksjon: <b style="color:#e2e8f0">${p.gwh?fmt(+p.gwh,0):'–'} GWh/år</b><br>
-      Prisområde: <b style="color:#e2e8f0">${p.omr||'–'}</b> ${OMRN[p.omr]||''}
+    <div style="font-size:11px;color:#64748b;margin-bottom:7px">${p.eier||'Ukjent eier'} · <b style="color:#334155">${p.k==='vann'?'Vannkraft':'Vindkraft'}</b></div>
+    <div style="font-size:12px;line-height:1.7;color:#334155">
+      Effekt: <b style="color:#0f172a">${fmt(+p.mw,0)} MW</b><br>
+      Årsproduksjon: <b style="color:#0f172a">${p.gwh?fmt(+p.gwh,0):'–'} GWh/år</b><br>
+      Prisområde: <b style="color:#0f172a">${p.omr||'–'}</b> ${OMRN[p.omr]||''}
     </div>`;
 }
 function drawMapPopup(){
@@ -1789,7 +1792,7 @@ function loadFacIcons(){
 let P=null;                                  // prices.json
 const MMBTU_PER_SM3 = 40/1055.06;            // 0,037913
 const NGL_DISCOUNT  = 0.50;
-const TICK_COLORS={oil:'#fbbf24',gas:'#34d399',ngl:'#38bdf8',con:'#c084fc'};
+const TICK_COLORS={oil:'#f59e0b',gas:'#10b981',ngl:'#0ea5e9',con:'#a855f7'};
 
 function priceIdx(y){
   if(!P) return -1;
@@ -1958,14 +1961,14 @@ function tickLegend(){ /* fordelingen per produkt er fjernet - lite interessant 
 /* Faste klasser, ikke skalert mot arets maks. Da betyr en boble det samme
    uansett hvilket ar du star pa - viktig nar du spoler gjennom tiden. */
 function BANDS(){
-  const b=[{t:50,c:'#fbbf24',l:'Svært stort'},
-           {t:15,c:'#f59e0b',l:'Stort'},
+  const b=[{t:50,c:'#f59e0b',l:'Svært stort'},
+           {t:15,c:'#fb923c',l:'Stort'},
            {t:4, c:'#94a3b8',l:'Middels'},
            {t:0, c:'#64748b',l:'Lite'}];
   return b.map(x=>({...x,l:`${x.l} · ${x.t?`over ${fmt(cv(x.t),0)}`:`under ${fmt(cv(4),0)}`} ${uLabel('oe')}`}));
 }
 function bandColor(vOe){          // vOe i mill Sm3 o.e. (ukonvertert)
-  return vOe>=50?'#fbbf24':vOe>=15?'#f59e0b':vOe>=4?'#94a3b8':'#64748b';
+  return vOe>=50?'#f59e0b':vOe>=15?'#fb923c':vOe>=4?'#94a3b8':'#64748b';
 }
 
 /* ---------- hjelp ---------- */
@@ -2020,7 +2023,7 @@ function initHjelp(){
    NVEs vindkraft-GIS. Spotpris hentes direkte fra hvakosterstrommen.no, som
    bygger pa Nord Pools dagen-for-priser. Prisen er fersk hver gang du apner. */
 let POW=null, powOn=false, SPOT=null, ENGF=null;
-const POWC={vann:'#38bdf8', vind:'#2dd4bf'};
+const POWC={vann:'#0ea5e9', vind:'#14b8a6'};
 const OMRN={NO1:'Sørøst',NO2:'Sørvest',NO3:'Midt',NO4:'Nord',NO5:'Vest'};
 const PWR_LAG=['pwr','pwr-md','pwr-sm'];
 const FIELD_LAG=['poly-fill','poly-line','poly-line-gas','poly-line-both','poly-line-con','bub','fac','lbl'];
@@ -2102,7 +2105,7 @@ function addPowerLayers(){
             'text-variable-anchor':['top','bottom','left','right'],
             'text-radial-offset':0.7,'text-justify':'auto',
             'text-allow-overlap':false,'symbol-sort-key':['get','rank']},
-    paint:{'text-color':'#a5b4c8','text-halo-color':'#0f172a','text-halo-width':1.7}},'lbl');
+    paint:{'text-color':'#334155','text-halo-color':'#ffffff','text-halo-width':1.7}},'lbl');
 
   const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:10});
   PWR_LAG.forEach(L=>{
@@ -2114,10 +2117,10 @@ function addPowerLayers(){
       const kr=pris!=null?p.mw*pris*1000:null;
       pop.setLngLat(e.lngLat).setHTML(
         `<b>${p.n}</b><br>
-         <span style="color:#94a3b8">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
+         <span style="color:#64748b">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
         +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
          <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}</span>`
-        +(kr!=null?`<br><span style="color:#fde68a;font-size:11px">Ved full produksjon nå: ${fmtNok(kr)}/time</span>`:'')
+        +(kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNok(kr)}/time</span>`:'')
       ).addTo(map);
     });
     map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
@@ -2191,8 +2194,8 @@ function addOmrLayers(){
   map.addLayer({id:'omr-lbl',type:'symbol',source:'omr-lbl-src',
     layout:{'text-field':['get','omr'],'text-font':['Noto Sans Regular'],
             'text-size':11.5,'text-letter-spacing':0.06,'symbol-placement':'point'},
-    paint:{'text-color':'#e2e8f0','text-opacity':0.75,
-           'text-halo-color':'#0f172a','text-halo-width':1.4}});
+    paint:{'text-color':'#334155','text-opacity':0.85,
+           'text-halo-color':'#ffffff','text-halo-width':1.8}});
 }
 
 /* Spotpris per prisomrade for inneverende time. */
@@ -2234,7 +2237,7 @@ function drawSpot(){
     ${Object.entries(SPOT).sort((a,b)=>b[1]-a[1]).map(([o,p])=>
       `<div class="sr"><span class="omr" title="${OMRN[o]||''}">${o}</span>
         <span class="bar"><i style="width:${Math.max(3,p/maks*100).toFixed(0)}%;
-          background:${p>1.5?'#f87171':p>0.8?'#fbbf24':'#4ade80'}"></i></span>
+          background:${p>1.5?'#ef4444':p>0.8?'#f59e0b':'#16a34a'}"></i></span>
         <span class="pr">${p.toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2})} kr</span></div>`).join('')}
     <div class="foot">Pris per kWh uten avgifter og nettleie.<br>
       <b>${fmt((POW.omrader?Object.values(POW.omrader).reduce((a,d)=>a+d.vann_mw+d.vind_mw,0):0)/1000,1)} GW</b>
@@ -2281,8 +2284,8 @@ function drawCompare(){
   const fE=powTwh?oilTwh/powTwh:0, fK=powRate?tickRate/powRate:0;
   el.hidden=false;
   el.innerHTML=`<div class="chead"><span>Energi per år</span><span>Verdi nå</span></div>`
-    +rad('Offshore olje og gass','#fbbf24',oilTwh,tickRate)
-    +rad('Strøm på land','#38bdf8',powTwh,powRate)
+    +rad('Offshore olje og gass','#f59e0b',oilTwh,tickRate)
+    +rad('Strøm på land','#2563eb',powTwh,powRate)
     +`<div class="fot">Olje og gass gir <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b>
        så mye energi som all norsk vann- og vindkraft, men er verdt bare
        <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye.</div>`;
