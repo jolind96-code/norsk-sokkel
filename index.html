@@ -193,6 +193,10 @@ header h1 em{font-style:normal;color:var(--acc)}
   100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 .tk-since{font-size:10px;color:var(--tx3);margin-top:5px}
 .tk-since span{color:var(--acc);font-variant-numeric:tabular-nums;margin-left:5px}
+.tk-hero{margin:9px 0 10px;padding:10px 12px;font-size:13.5px;font-weight:600;
+  line-height:1.5;color:#78350f;background:linear-gradient(135deg,#fef3c7,#fde68a);
+  border:1px solid #f59e0b;border-radius:10px}
+.tk-hero b{font-size:15px;font-weight:800}
 .tk2{display:grid;grid-template-columns:1fr;gap:10px;margin-top:8px}
 .tk2c{min-width:0}
 .tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
@@ -507,6 +511,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
         <div class="tk-head"><span class="live"><i></i>Direkte</span>
           <span id="tk-klokke"></span></div>
         <div class="tk-since">Siden du åpnet siden<span id="tk-time"></span></div>
+        <div class="tk-hero" id="tk-hero" hidden></div>
         <div class="tk2">
           <div class="tk2c">
             <div class="lbl"><i style="background:#f59e0b"></i>Olje og gass</div>
@@ -2631,7 +2636,8 @@ const TWH_PER_MILL_SM3_OE = 35500/3600;           // 9,861 TWh per mill Sm³ o.e
 let powRate=0, powTwh=0, vannRate=0, vindRate=0, vannTwh=0, vindTwh=0, solRate=0, varmeRate=0;
 function drawCompare(){
   const el=document.getElementById('tk-cmp');
-  if(!POW||!SPOT||!tickRate){ el.hidden=true; return; }
+  const hero=document.getElementById('tk-hero');
+  if(!POW||!SPOT||!tickRate){ el.hidden=true; hero.hidden=true; return; }
   const SEK=365.25*24*3600;
   powRate=0; powTwh=0; vannRate=0; vindRate=0; vannTwh=0; vindTwh=0;
   for(const [o,d] of Object.entries(POW.omrader)){
@@ -2662,7 +2668,7 @@ function drawCompare(){
     powTwh+=solTwh+varmeTwh;
     powRate+=solRate+varmeRate;
   }
-  if(!powRate){ el.hidden=true; return; }
+  if(!powRate){ el.hidden=true; hero.hidden=true; return; }
   /* Offshore: siste hele ars produksjon i mill Sm³ o.e. -> TWh */
   const y=D.meta.partialYear?D.meta.partialYear-1:D.meta.yearMax;
   const oeMill=D.fields.reduce((a,f)=>a+(f.s.oe[y-YMIN]||0),0);
@@ -2680,9 +2686,14 @@ function drawCompare(){
   el.innerHTML=`<div class="chead"><span>Energi per år</span><span>Verdi nå</span></div>`
     +rad('Offshore olje og gass','#f59e0b',oilTwh,tickRate)
     +rad('Strøm på land','#2563eb',powTwh,powRate)
-    +`<div class="fot">Norge er fortsatt en oljenasjon: olje og gass gir <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b>
-       så mye energi som all norsk vann- og vindkraft — og er fortsatt verdt hele
-       <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye i kroner.</div>`;
+    +`<div class="fot">Detaljer bak tallene over. Hovedbudskapet står øverst i kortet.</div>`;
+  /* Hovedbudskapet i hele appen - lagt hoyt oppe og fremhevet, ikke gjemt
+     nederst i en fotnote (se sense-check-analyse 4. sep). */
+  hero.hidden=false;
+  hero.innerHTML=`🛢️ Norge er fortsatt en oljenasjon: olje og gass gir
+    <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye energi som all norsk
+    vann- og vindkraft til sammen — og er fortsatt verdt
+    <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye i kroner.`;
   tegnNote();
 }
 
