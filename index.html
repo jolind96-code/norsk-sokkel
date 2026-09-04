@@ -714,6 +714,26 @@ async function restoreUrlSelection(){
   if(st.ncs===false) toggleNcs();
 }
 
+/* ---------- feilvarsel ---------- */
+/* Enkel, ikke-paatrengende banner nederst pa skjermen nar kritiske
+   datakilder ikke svarer. Brukes kun for data.json (blokkerende) og
+   power.json (kraftdata) - de valgfrie kildene (facilities/partners)
+   degraderer stille siden appen fungerer fint uten dem. */
+function showDataWarning(msg){
+  let el=document.getElementById('datawarn');
+  if(!el){
+    el=document.createElement('div');
+    el.id='datawarn';
+    el.style.cssText='position:fixed;bottom:14px;left:50%;transform:translateX(-50%);'
+      +'z-index:9999;background:#fef2f2;border:1px solid #fca5a5;color:#7f1d1d;'
+      +'font-size:12.5px;line-height:1.4;padding:9px 15px;border-radius:10px;'
+      +'box-shadow:0 4px 14px rgba(0,0,0,.15);max-width:min(420px,90vw);text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent='⚠️ '+msg;
+  el.style.display='block';
+}
+
 /* ---------- init ---------- */
 fetch('data.json').then(r=>r.json()).then(d=>{
   D=d; YMIN=D.meta.yearMin; YMAX=D.meta.yearMax;
@@ -782,11 +802,23 @@ fetch('data.json').then(r=>r.json()).then(d=>{
     /* Stromdata lastes med en gang sa sammenligningen i telleren alltid vises.
        Selve kartlaget legges forst til nar brukeren slar det pa. */
     fetch('power.json',{cache:'no-store'}).then(r=>r.json()).then(pw=>{ POW=pw; addHavVindLayer(); return loadSpot(); })
-      .then(()=>drawCompare()).catch(()=>{});
+      .then(()=>drawCompare()).catch(()=>{
+        showDataWarning('Kraftdata fra NVE kunne ikke hentes akkurat nå. Kartlaget for vann-/vindkraft og sammenligningen i telleren er derfor ikke tilgjengelig - prøv å laste siden på nytt om litt.');
+      });
     /* Nasjonale energiform-totaler (SSB, arlig) - til KPI-kortet i Land-
        modulen OG til sol/varme-anslagene i inntektstelleren (se drawCompare). */
     fetch('energiformer.json').then(r=>r.json()).then(e=>{ ENGF=e; drawCompare(); }).catch(()=>{});
   }).catch(()=>{ document.getElementById('tick').style.display='none'; });
+}).catch(err=>{
+  console.error('Kunne ikke laste data.json', err);
+  document.getElementById('loading').innerHTML =
+    '<div style="max-width:300px;text-align:center">'
+    +'<div style="font-size:26px;margin-bottom:8px">⚠️</div>'
+    +'<div style="font-weight:700;margin-bottom:4px">Kunne ikke laste produksjonsdata</div>'
+    +'<div style="font-size:12px;color:var(--tx3);margin-bottom:12px">Sjekk nettforbindelsen din og prøv igjen.</div>'
+    +'<button onclick="location.reload()" style="padding:7px 16px;border-radius:8px;'
+    +'border:1px solid var(--line);background:var(--card);color:var(--tx);cursor:pointer;'
+    +'font:inherit">Prøv igjen</button></div>';
 });
 
 /* senterpunkt = tyngdepunkt i største ring; [lng,lat] */
