@@ -1685,8 +1685,8 @@ function drawPowerDetail(el){
     </div>
     ${krTime!=null?`<div class="inc">
       <div class="inc-h">Verdi ved full produksjon nå</div>
-      <div class="inc-v">${fmtNok(krTime)}<span style="font-size:13px;color:var(--tx3)"> / time</span></div>
-      ${krAar!=null?`<div class="inc-s">Tilsvarer omtrent ${fmtNok(krAar)} i året, gitt dagens spotpris i ${p.omr} og full ${p.k==='vann'?'tilsig':'vind'} hele tiden - reelt lavere.</div>`:''}
+      <div class="inc-v">${fmtNokPresis(krTime)}<span style="font-size:13px;color:var(--tx3)"> / time</span></div>
+      ${krAar!=null?`<div class="inc-s">Tilsvarer omtrent ${fmtNokPresis(krAar)} i året, gitt dagens spotpris i ${p.omr} og full ${p.k==='vann'?'tilsig':'vind'} hele tiden - reelt lavere.</div>`:''}
       <div class="inc-s" style="margin-top:3px;color:var(--tx3)">Teoretisk tak basert på installert effekt, ikke faktisk produksjon time for time. Uoffisielt anslag.</div>
     </div>`:'<div class="note">Mangler spotpris for prisområdet akkurat nå.</div>'}
     <div class="note" style="margin-top:9px">Kilde: NVE (anleggsregister) og hvakosterstrommen.no (spotpris).</div>`;
@@ -1944,6 +1944,15 @@ function computeTickRate(){
 function fmtNok(v){
   if(v>=1e9) return Math.round(v/1e9).toLocaleString('nb-NO')+' mrd kr';
   if(v>=1e6) return Math.round(v/1e6).toLocaleString('nb-NO')+' mill kr';
+  return Math.round(v).toLocaleString('nb-NO')+' kr';
+}
+/* Som fmtNok, men med én desimal fra og med 1 mill kr - avrunding til hele
+   millioner var for grovt for de mest produktive vannkraftverkene (f.eks.
+   Kvilldal), der forskjellen mellom f.eks. 12,4 og 12,9 mill kr/time
+   forsvant helt. Brukes kun i hover-popupen pa kraftanlegg-kartlaget. */
+function fmtNokPresis(v){
+  if(v>=1e9) return (v/1e9).toLocaleString('nb-NO',{maximumFractionDigits:1,minimumFractionDigits:1})+' mrd kr';
+  if(v>=1e6) return (v/1e6).toLocaleString('nb-NO',{maximumFractionDigits:1,minimumFractionDigits:1})+' mill kr';
   return Math.round(v).toLocaleString('nb-NO')+' kr';
 }
 /* Telleren ble forst oppfattet som "crazy": tegnet pa nytt hver animasjonsframe
@@ -2231,7 +2240,7 @@ function addPowerLayers(){
          <span style="color:#64748b">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
         +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
          <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}</span>`
-        +(kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNok(kr)}/time</span>`:'')
+        +(kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`:'')
       ).addTo(map);
     });
     map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
