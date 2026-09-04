@@ -1258,7 +1258,7 @@ function buildMap(){
       }
       if(selected||selectedPower){          // tomt hav = ga ut av feltvisningen
         selected=null; selectedPower=null; popup.remove();
-        drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+        renderAll();
       }
     });
     ['bub','poly-fill'].forEach(L=>{
@@ -1288,6 +1288,15 @@ function fitToFields(){
                              [Math.max(a[1][0],c[0]),Math.max(a[1][1],c[1])]],
                      [[180,90],[-180,-90]]);
   map.fitBounds(b,{padding:{top:50,bottom:110,left:50,right:60},duration:0});
+}
+
+/* Samlet render-helper - kalles etter enhver tilstandsendring som paavirker
+   flere av visningene samtidig (valg, filter, aar, modul-bytte). Erstatter
+   den tidligere gjentatte kjeden av 7 draw*()-kall spredt paa 7 steder i
+   koden - risikoreduksjon, ingen synlig atferdsendring. Rekkefoelgen er den
+   samme som var brukt 6 av 7 steder fra foer. */
+function renderAll(){
+  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
 }
 
 function drawMap(){
@@ -1396,7 +1405,7 @@ function select(id){
     setTimeout(()=>{const r=document.querySelector(`.row[data-id="${selected}"]`);
       if(r) r.scrollIntoView({block:'nearest'});},30);
   }
-  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+  renderAll();
 }
 
 /* Samme monster som select(), men for kraftanlegg (vann/vind pa land).
@@ -1408,7 +1417,7 @@ function selectPower(rank){
     const p=POW.verk[selectedPower];
     if(p&&p.c) map.flyTo({center:p.c,zoom:Math.max(map.getZoom(),8),duration:700});
   }
-  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+  renderAll();
 }
 
 /* ---------- liste ---------- */
@@ -1790,7 +1799,7 @@ function ensureClickPopup(){
   clickPopup.on('close',()=>{
     if(selected||selectedPower!=null){
       selected=null; selectedPower=null;
-      drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+      renderAll();
     }
   });
   return clickPopup;
@@ -2429,7 +2438,7 @@ async function setHL(hl){
     kilde.textContent='Data: Sokkeldirektoratet · NLOD';
     csvbtn.title='Last ned data for gjeldende utvalg (alle år, valgt enhet) som CSV';
   }
-  drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
+  renderAll();
 }
 
 function addPowerLayers(){
@@ -2848,7 +2857,7 @@ function refresh(){
   if(selected&&!filtered.some(f=>f.id===selected)) selected=null;
   document.getElementById('yearlbl').innerHTML=year+
     (year===D.meta.partialYear?`<span>t.o.m. ${String(D.meta.lastDataMonth).padStart(2,'0')}/${year}</span>`:'<span>&nbsp;</span>');
-  drawMap();drawList();drawKpis();drawTs();drawRank();drawDetail();drawActive();
+  renderAll();
 }
 </script>
 <!-- Enkeltfil-versjon. MapLibre og ECharts er bakt inn og krever ikke nett. Kartfliser (openfreemap.org) krever fortsatt nett. -->
