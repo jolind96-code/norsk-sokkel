@@ -85,6 +85,7 @@ header h1 em{font-style:normal;color:var(--acc)}
    "viser X av Y felt"-linjen gir ingen mening for kraftverk, så de skjules.
    Søkefeltet virker fortsatt (powFiltered() matcher navn/eier). */
 #side.land-mode .fieldfilters,#side.land-mode #active{display:none}
+#hdr.land-mode .hav-only-controls{display:none}
 #charts.land-mode #tsmode{display:none}
 #listtitle{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--tx2);
   font-weight:700;padding:9px 14px 5px}
@@ -395,17 +396,19 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       Produksjons- og reservetall er hentet direkte fra Sokkeldirektoratets åpne data (NLOD).
       Inntektsanslagene er våre egne og omtrentlige.</div>
   </div></div>
-  <header>
+  <header id="hdr">
     <h1>Norsk energiproduksjon</h1>
     <span class="sub" id="hdrsub"></span>
     <span class="spacer"></span>
-    <span class="sub">Enhet</span>
-    <div class="chips" id="unitchips">
-      <button class="chip on" data-u="boe">Fat (boe)</button>
-      <button class="chip" data-u="sm3">Sm³</button>
+    <div class="hav-only-controls">
+      <span class="sub">Enhet</span>
+      <div class="chips" id="unitchips">
+        <button class="chip on" data-u="boe">Fat (boe)</button>
+        <button class="chip" data-u="sm3">Sm³</button>
+      </div>
+      <span class="sub">Måltall</span>
+      <div class="chips" id="metricchips"></div>
     </div>
-    <span class="sub">Måltall</span>
-    <div class="chips" id="metricchips"></div>
     <div class="havland" id="havland">
       <button class="hlbtn on" data-hl="hav" title="Olje og gass fra sokkelen">🌊 Hav</button>
       <button class="hlbtn" data-hl="land" title="Vann- og vindkraft på land">⛰️ Land</button>
@@ -421,7 +424,6 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
        target="_blank" rel="noopener"
        title="Inneholder data under Norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Sokkeldirektoratet.&#10;Data er bearbeidet av oss: månedstall er aggregert til år, og volum er regnet om til fat.&#10;&#10;Øvrige kilder: Verdensbanken og EIA (priser), Norges Bank (valutakurs), SSB (folketall), OpenStreetMap / OpenFreeMap (kart).">Data: Sokkeldirektoratet · NLOD</a>
   </header>
-
   <aside id="side">
     <div class="shead">
       <input id="search" placeholder="Søk felt eller operatør…">
@@ -1131,7 +1133,7 @@ function drawMap(){
         nfac:(FAC[f.id]&&FAC[f.id].count)||0,
         sel:selected===f.id,big:bigSet.has(f.id)}};})});
 
-  drawLegend(max);
+  if(HL==='land') drawLegendLand(); else drawLegend(max);
 }
 
 function drawLegend(max){
@@ -1156,6 +1158,40 @@ function drawLegend(max){
      <div class="lg-h" style="margin-top:6px" title="Feltomrisset har ogsa et eget strekmonster per type, uavhengig av farge - nyttig ved rod-gronn fargeblindhet.">Omrisset har eget strekmønster per type (uavhengig av farge)</div>
      <div class="lg-row lg-ncs" title="Sammenslått ytterkontur av Sokkeldirektoratets 41 delområder. Følger avtalte delelinjer mot Storbritannia, Danmark og Russland i sør og øst.">
        <span class="dash"></span>Yttergrense norsk sokkel</div></div>`;
+  wireLegendChrome();
+}
+
+/* Land-variant av kartforklaringen (kraftanlegg: vann/vind), speiler
+   drawLegend() over - egen funksjon fordi enhet (MW, ikke o.e./boe/Sm3),
+   storrelseskilde (installert effekt, ikke produksjon) og fargekoding
+   (kraftkilde, ikke hydrokarbontype) er helt andre for Land-modus. Uten
+   denne lekket Hav-forklaringen ("o.e.", "Yttergrense norsk sokkel") inn i
+   Land-visningen. */
+function drawLegendLand(){
+  const feats=POW?POW.verk:[];
+  const maxMw=Math.max(...feats.map(p=>+p.mw||0),1e-9);
+  const kl=[{v:maxMw,l:'Stor',d:24},{v:maxMw/4,l:'Middels',d:14},{v:maxMw/16,l:'Liten',d:7}]
+    .filter(x=>x.v>0.0001);
+  const kilder=[['vann','Vannkraft'],['vind','Vindkraft']];
+  document.getElementById('legend').innerHTML=
+    `<b>Effekt${cum?'':` · ${year}`}</b>
+     <button id="lg-lukk" title="Skjul forklaring" aria-label="Skjul forklaring">−</button>
+     <div class="lg-body">
+     <div class="lg-h">Boblestørrelsen viser installert effekt</div>
+     ${kl.map(x=>`<div class="lg-sz"><span class="cw"><i style="width:${x.d}px;height:${x.d}px"></i></span>
+        <span class="kl">${x.l}</span>
+        <span class="vv">${fmt(x.v,x.v<10?1:0)}</span></div>`).join('')}
+     <div class="lg-u">MW</div>
+     <div class="lg-sep"></div>
+     <div class="lg-h">Fargen viser kraftkilde</div>
+     ${kilder.map(([k,l])=>`<div class="lg-row"><span class="dot" style="background:${POWC[k]}"></span>${l}</div>`).join('')}
+     </div>`;
+  wireLegendChrome();
+}
+
+/* Felles av/pa-logikk for forklaringspanelet (samles/utvides), delt av
+   Hav- og Land-legenden sa den ikke driver fra hverandre over tid. */
+function wireLegendChrome(){
   const el=document.getElementById('legend');
   const kn=document.getElementById('lg-lukk');
   el.classList.toggle('mini',lgMini);
@@ -2117,6 +2153,20 @@ async function setHL(hl){
   document.getElementById('timebar').style.display = hl==='land' ? 'none' : '';
   document.getElementById('side').classList.toggle('land-mode',hl==='land');
   document.getElementById('charts').classList.toggle('land-mode',hl==='land');
+  document.getElementById('hdr').classList.toggle('land-mode',hl==='land');
+  const kilde=document.getElementById('kilde');
+  const csvbtn=document.getElementById('csvbtn');
+  if(hl==='land'){
+    kilde.href='https://www.nve.no/energi/energisystem/kraftproduksjon/';
+    kilde.title='Kraftverksdata fra NVEs kraftverksdatabase (vann- og vindkraft), aggregert av oss.\nEnergiform-fordeling (vann/vind/sol/varme nasjonalt) fra SSB.\n\nØvrige kilder: Norges Bank (valutakurs), OpenStreetMap / OpenFreeMap (kart).';
+    kilde.textContent='Data: NVE · SSB';
+    csvbtn.title='Last ned kraftanlegg (vann/vind) som CSV';
+  }else{
+    kilde.href='https://data.norge.no/nlod/no/2.0';
+    kilde.title='Inneholder data under Norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Sokkeldirektoratet.\nData er bearbeidet av oss: månedstall er aggregert til år, og volum er regnet om til fat.\n\nØvrige kilder: Verdensbanken og EIA (priser), Norges Bank (valutakurs), SSB (folketall), OpenStreetMap / OpenFreeMap (kart).';
+    kilde.textContent='Data: Sokkeldirektoratet · NLOD';
+    csvbtn.title='Last ned data for gjeldende utvalg (alle år, valgt enhet) som CSV';
+  }
   drawMap();drawList();drawDetail();drawTs();drawRank();drawKpis();drawActive();
 }
 
