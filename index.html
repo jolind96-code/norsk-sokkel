@@ -515,6 +515,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       <div class="scope" id="kpiscope"></div>
       <div class="kpis" id="kpis" aria-live="polite"></div>
       <div class="note" id="kpinote"></div>
+      <div class="note" id="kpires" style="display:none"></div>
       <div class="nathead" id="nathead" style="display:none">Norge totalt, alle energiformer (SSB)</div>
       <div class="natchips" id="kpinat" style="display:none"></div>
 
@@ -1451,10 +1452,27 @@ function drawKpis(){
     : (year===D.meta.partialYear
       ? `<b>Merk:</b> ${year} er ufullstendig — data t.o.m. ${String(D.meta.lastDataMonth).padStart(2,'0')}/${year}.`
       : `Prosentendring mot ${year-1}${sel?` for ${tc(sel.name)}`:''}.`);
+  drawKpiReserves(scope, cum);
+}
+/* Viser gjenstaende reserver (SODIRs anslag, statisk - ikke en tidsserie)
+   som en kompakt linje under KPI-kortet, kun i kumulativ modus siden
+   "produsert sa langt" + "reserver igjen" er den meningsfulle sammenligningen. */
+function drawKpiReserves(scope, cum){
+  const el=document.getElementById('kpires');
+  if(!cum){ el.style.display='none'; return; }
+  const withRes=scope.filter(f=>f.res);
+  if(!withRes.length){ el.style.display='none'; return; }
+  const remOe=cv(withRes.reduce((a,f)=>a+(f.res.remOe||0),0));
+  const recOe=cv(withRes.reduce((a,f)=>a+(f.res.recOe||0),0));
+  const pct = recOe>0 ? remOe/recOe*100 : 0;
+  el.style.display='';
+  el.innerHTML=`<b>Reserver igjen:</b> ${fmt(remOe,0)} ${uLabel('oe')} (${pct.toFixed(0)} % av opprinnelig utvinnbart)
+    for ${withRes.length} av ${scope.length} felt med publiserte reservetall. Kilde: Sokkeldirektoratet.`;
 }
 /* Kraftverk har ingen ar-for-ar-serie (NVE gir kun midlere arsproduksjon),
    sa KPI-kortet for Land viser bestand na (MW/GWh), ikke en tidsserie. */
 function drawKpisLand(){
+  document.getElementById('kpires').style.display='none';
   if(!POW){ document.getElementById('kpis').innerHTML='<div class="empty">Laster …</div>'; return; }
   const p=selectedPower!=null?POW.verk[selectedPower]:null;
   const scope=p?[p]:powFiltered().map(r=>r.p);
