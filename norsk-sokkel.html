@@ -2797,8 +2797,10 @@ function tegnNote(){
       +`gass <b>${n2(b.gas)} $/MMBtu</b>${b.gassDato?` (${b.gassDato})`:''}, kurs <b>${n2(b.fx)} kr/$</b>`
       +`${b.fxDato?` per ${b.fxDato.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$3.$2.$1')}`:''}`
     : `årsgjennomsnitt for ${b.y}`;
-  el.innerHTML=`<b>Uoffisielt anslag.</b> Volum er siste hele års produksjon fordelt jevnt
-    utover året. Olje og gass prises med ${oljeKilde}.
+  el.innerHTML=`<b>Uoffisielt anslag.</b> Volum for olje og gass er siste hele års produksjon;
+    volum for vann- og vindkraft er NVEs midlere årsproduksjon (snitt 1991–2020, ikke et enkeltår) —
+    de to tallene har altså ulikt tidsgrunnlag og bør leses som størrelsesorden, ikke en presis
+    år-mot-år-sammenligning. Olje og gass prises med ${oljeKilde}.
     ${SPOT?`Strøm prises med spotpris nå i hvert prisområde.`:''}
     ${(solRate||varmeRate)?`Sol- og varmekraft har ingen egen prisområde-fordeling
     (kun nasjonale SSB-årstotaler) og prises derfor med volumveid
