@@ -204,6 +204,8 @@ header h1 em{font-style:normal;color:var(--acc)}
 .tk2c{min-width:0}
 .tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbl-row{display:flex;align-items:center;gap:6px;min-width:0}
+.lbl-row .lbl{flex:1 1 auto;min-width:0}
 .tk-toggle{background:none;border:none;color:var(--acc);font-size:9.5px;font-weight:700;
   cursor:pointer;padding:0;margin-left:auto;text-decoration:underline;flex:0 0 auto}
 .tk-toggle:hover{color:var(--acc2)}
@@ -525,7 +527,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
             <div class="rate" id="tk-sub"></div>
           </div>
           <div class="tk2c">
-            <div class="lbl"><i style="background:#2563eb"></i>Strøm på land
+            <div class="lbl-row"><div class="lbl"><i style="background:#2563eb"></i>Strøm på land</div>
               <button id="tk-pow-toggle" class="tk-toggle" type="button" aria-expanded="false">Vis kilder ▾</button></div>
             <div class="val blaa" id="tk-pow" aria-live="off">0 kr</div>
             <div class="rate" id="tk-pow-sub"></div>
