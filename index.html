@@ -585,6 +585,17 @@ const statN=s=>STATN[s]||s;
 const tc=s=>s.replace(/[A-ZÆØÅ][A-ZÆØÅ0-9/\-\.]*/g,w=>
   (w.length<=3&&!/[0-9]/.test(w)&&w.length>1)?w:w.charAt(0)+w.slice(1).toLowerCase());
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':v.toLocaleString('nb-NO',{minimumFractionDigits:d,maximumFractionDigits:d});
+/* Konsekvent GWh/TWh-formatering: over 1000 GWh (=1 TWh) byttes det til TWh,
+   sa store nasjonale/regionale summer ikke vises som femsifrede GWh-tall.
+   1 desimal under 10 TWh (for a skille f.eks. 1,2 og 1,8 TWh), ellers 0. */
+function fmtGwh(gwh){
+  if(gwh==null||isNaN(gwh)) return {v:'–',u:'GWh'};
+  const a=Math.abs(gwh);
+  if(a>=1000) return {v:fmt(gwh/1000, a/1000<10?1:0), u:'TWh'};
+  return {v:fmt(gwh,a<10?1:0), u:'GWh'};
+}
+/* Som fmtGwh, men returnerer en ferdig streng "verdi enhet[/suffix]". */
+const gwhStr=(gwh,suffix='')=>{ const {v,u}=fmtGwh(gwh); return `${v} ${u}${suffix}`; };
 
 let D,YMIN,YMAX,year,metric='oe',tsMode='type',selected=null,playing=null,filtered=[],mapReady=false;
 let selectedPower=null;   // valgt kraftanlegg (id = rank i power.json), viser detalj i samme panel
@@ -1353,6 +1364,9 @@ function drawKpisLand(){
     ? `${p.eier||''} · ${p.k==='vann'?'Vannkraft':'Vindkraft'}`
     : `${scope.length} kraftanlegg · installert effekt`;
   const kpi=(l,v,u,tip)=>`<div class="kpi"${tip?` title="${tip}"`:''}><div class="k">${l}</div><div class="v">${fmt(v,v<10?1:0)}</div><div class="u">${u}</div></div>`;
+  /* Egen KPI-variant for GWh/TWh, sa store arsproduksjonstall vises konsekvent
+     med resten av dashboardet (se fmtGwh). */
+  const kpiGwh=(l,gwh)=>{const {v,u}=fmtGwh(gwh); return `<div class="kpi"><div class="k">${l}</div><div class="v">${v}</div><div class="u">${u}/år</div></div>`;};
   /* Tredje kortet var "Vannkraft: MW" - for et ENKELT valgt anlegg er det
      alltid identisk med "Effekt" (samme anlegg, samme tall), eller 0 hvis
      vindkraft. Vis i stedet kapasitetsfaktor (faktisk snittproduksjon delt
@@ -1364,7 +1378,7 @@ function drawKpisLand(){
     : kpi('Vannkraft',sumK('mw',x=>x.k==='vann'),'MW');
   document.getElementById('kpis').innerHTML =
     kpi('Effekt',sumK('mw'),'MW') +
-    kpi('Årsproduksjon',sumK('gwh'),'GWh/år') +
+    kpiGwh('Årsproduksjon',sumK('gwh')) +
     third;
   document.getElementById('kpinote').innerHTML = p
     ? `Idriftsatt ${p.aar||'ukjent år'} · ${p.fylke||''}${p.omr?` · ${p.omr}`:''}<br>
@@ -1395,7 +1409,7 @@ function drawKpiNat(){
   box.style.display='';
   box.innerHTML=rows.map(([k,l,v])=>
     `<div class="natchip"><span class="d" style="background:${ENGFC[k]}"></span>
-      <span class="l">${l}</span><b>${fmt(v,0)} GWh</b></div>`).join('')+
+      <span class="l">${l}</span><b>${gwhStr(v)}</b></div>`).join('')+
     `<div class="natfoot" style="width:100%">Solkraft/varmekraft mangler NVE-data per anlegg (mest små, ikke-geolokaliserte takanlegg) og kan derfor ikke vises som punkter på kartet.</div>`;
 }
 
@@ -1508,18 +1522,22 @@ function drawTsLand(){
   const sum=(o,k)=>rows.filter(p=>p.omr===o&&p.k===k).reduce((a,p)=>a+(p.gwh||0),0);
   document.getElementById('tsscope').textContent=
     `${rows.length} kraftanlegg i utvalget — årsproduksjon fordelt på prisområde`;
+  /* Bytt til TWh nar tallene blir store (se fmtGwh), slik at aksen matcher
+     resten av dashboardet i stedet for a vise femsifrede GWh-tall. */
+  const maxV=Math.max(0,...areas.flatMap(o=>[sum(o,'vann'),sum(o,'vind')]));
+  const useTwh=maxV>=1000, conv=v=>useTwh?v/1000:v, dec=useTwh?1:0, unitLbl=useTwh?'TWh/år':'GWh/år';
   tsChart.setOption({...BASE,
     animation:false,
     grid:{left:46,right:14,top:26,bottom:34},
     xAxis:{type:'category',data:areas.map(o=>`${o} · ${OMRN[o]||''}`),...AX},
-    yAxis:{type:'value',name:'GWh/år',nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
+    yAxis:{type:'value',name:unitLbl,nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
     series:[
       {name:'Vannkraft',type:'bar',stack:'s',color:POWC.vann,
-        data:areas.map(o=>+sum(o,'vann').toFixed(0))},
+        data:areas.map(o=>+conv(sum(o,'vann')).toFixed(dec))},
       {name:'Vindkraft',type:'bar',stack:'s',color:POWC.vind,
-        data:areas.map(o=>+sum(o,'vind').toFixed(0))}],
+        data:areas.map(o=>+conv(sum(o,'vind')).toFixed(dec))}],
     tooltip:{...BASE.tooltip,trigger:'axis',formatter:ps=>
-      `${ps[0].name}<br>${ps.map(p=>`${p.marker}${p.seriesName}: <b>${fmt(p.value,0)}</b> GWh/år`).join('<br>')}`}
+      `${ps[0].name}<br>${ps.map(p=>`${p.marker}${p.seriesName}: <b>${fmt(p.value,dec)}</b> ${unitLbl}`).join('<br>')}`}
   },true);
 }
 document.getElementById('tsmode').onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
@@ -1555,10 +1573,10 @@ function drawRankLand(){
   const rows=powFiltered().map(r=>r.p).filter(p=>p.gwh>0)
     .sort((a,b)=>b.gwh-a.gwh).slice(0,15).reverse();
   document.getElementById('ranklbl').innerHTML=
-    `topp 15 · årsproduksjon <span class="enh">GWh/år</span>`;
+    `topp 15 · årsproduksjon <span class="enh">GWh/TWh per år</span>`;
   rankChart.setOption({...BASE,legend:{show:false},
     grid:{left:100,right:48,top:6,bottom:6},
-    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,0)}</b> GWh/år`},
+    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${gwhStr(p.value,'/år')}</b>`},
     xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
     yAxis:{type:'category',data:rows.map(p=>p.n),...AX,
       axisLabel:{color:selectedPower!=null?'#94a3b8':'#334155',fontSize:10.5,fontWeight:500},
@@ -1571,7 +1589,7 @@ function drawRankLand(){
         opacity:selectedPower!=null&&selectedPower!==rank?.32:1,borderRadius:[0,3,3,0],
         borderColor:selectedPower===rank?'#0f172a':'transparent',borderWidth:1.6}};}),
       label:{show:true,position:'right',color:'#334155',fontSize:9.5,fontWeight:600,
-        formatter:p=>fmt(p.value,0)}}]
+        formatter:p=>gwhStr(p.value)}}]
   },true);
 }
 
@@ -1613,7 +1631,7 @@ function popupHtmlPower(p){
     <div style="font-size:11px;color:#64748b;margin-bottom:7px">${p.eier||'Ukjent eier'} · <b style="color:#334155">${p.k==='vann'?'Vannkraft':'Vindkraft'}</b></div>
     <div style="font-size:12px;line-height:1.7;color:#334155">
       Effekt: <b style="color:#0f172a">${fmt(+p.mw,0)} MW</b><br>
-      Årsproduksjon: <b style="color:#0f172a">${p.gwh?fmt(+p.gwh,0):'–'} GWh/år</b><br>
+      Årsproduksjon: <b style="color:#0f172a">${p.gwh?gwhStr(+p.gwh,'/år'):'–'}</b><br>
       Prisområde: <b style="color:#0f172a">${p.omr||'–'}</b> ${OMRN[p.omr]||''}
     </div>`;
 }
@@ -1692,7 +1710,7 @@ function drawPowerDetail(el){
       <b>${p.omr||'–'} ${OMRN[p.omr]||''}</b>${p.aar?` · satt i drift ${p.aar}`:''}</div>
     <div class="kpis" style="margin-top:11px">
       <div class="kpi"><div class="k">Effekt</div><div class="v">${fmt(+p.mw,0)}</div><div class="u">MW</div></div>
-      <div class="kpi"><div class="k">Årsproduksjon</div><div class="v">${p.gwh?fmt(+p.gwh,0):'–'}</div><div class="u">GWh/år</div></div>
+      <div class="kpi"><div class="k">Årsproduksjon</div><div class="v">${p.gwh?fmtGwh(+p.gwh).v:'–'}</div><div class="u">${p.gwh?fmtGwh(+p.gwh).u:'GWh'}/år</div></div>
       <div class="kpi"><div class="k">Prisområde</div><div class="v" style="font-size:15px">${p.omr||'–'}</div><div class="u">${OMRN[p.omr]||''}</div></div>
     </div>
     ${krTime!=null?`<div class="inc">
@@ -2264,7 +2282,7 @@ function addPowerLayers(){
       pop.setLngLat(e.lngLat).setHTML(
         `<b>${p.n}</b><br>
          <span style="color:#64748b">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
-        +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
+        +`${+p.gwh?` · ${gwhStr(+p.gwh,'/år')}`:''}</span>
          <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}</span>`
         +(kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`:'')
       ).addTo(map);
@@ -2295,7 +2313,7 @@ function addHavVindLayer(){
     pop.setLngLat(e.lngLat).setHTML(
       `<b>${p.n}</b><br>
        <span style="color:#64748b">Flytende havvind (testanlegg) · ${fmt(+p.mw,1)} MW`
-      +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
+      +`${+p.gwh?` · ${gwhStr(+p.gwh,'/år')}`:''}</span>
        <br><span style="color:#94a3b8;font-size:11px">${p.eier}${p.fylke?` · utenfor ${p.fylke}`:''}
        · vises her og ikke i Land-modulen, siden anlegget står til havs</span>`
     ).addTo(map);
@@ -2370,7 +2388,7 @@ function ensureEstLayer(){
       map.getCanvas().style.cursor='pointer';
       pop.setLngLat(e.lngLat).setHTML(
         `<b>${p.n} <span style="font-weight:400;color:#94a3b8">(anslag)</span></b><br>
-         <span style="color:#64748b">${p.k==='sol'?'Solkraft':'Varmekraft'} · ~${fmt(p.gwh,p.gwh<10?1:0)} GWh/år</span>
+         <span style="color:#64748b">${p.k==='sol'?'Solkraft':'Varmekraft'} · ~${gwhStr(p.gwh,'/år')}</span>
          <br><span style="color:#94a3b8;font-size:11px">Ikke et faktisk anlegg - nasjonalt tall (SSB) fordelt etter folketall, siden ${p.k==='sol'?'sol':'varme'}kraft mangler geolokaliserte data per anlegg.</span>`
       ).addTo(map);
     });
