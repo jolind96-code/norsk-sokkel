@@ -126,6 +126,8 @@ header h1 em{font-style:normal;color:var(--acc)}
 .glass{background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--r);
   backdrop-filter:blur(10px);box-shadow:0 8px 28px rgba(15,23,42,.12)}
 #legend{position:absolute;left:14px;bottom:14px;z-index:5;padding:10px 12px 9px;font-size:10.5px;max-width:214px}
+#maplayers{position:absolute;right:14px;top:78px;z-index:5;padding:6px}
+#maplayers .chip{white-space:nowrap;font-size:11px}
 #legend b{display:block;font-size:9px;letter-spacing:.9px;text-transform:uppercase;color:var(--tx2);margin-bottom:7px;padding-right:22px}
 #sizeleg{display:flex;align-items:flex-end;gap:10px;height:38px;margin-bottom:3px}
 #sizeleg .sz{text-align:center;color:var(--tx3);font-size:9px}
@@ -444,10 +446,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       <button class="hlbtn on" data-hl="hav" title="Olje og gass fra sokkelen">🌊 Hav</button>
       <button class="hlbtn" data-hl="land" title="Vann- og vindkraft på land">⛰️ Land</button>
     </div>
-    <div class="chips" style="margin-left:10px">
-      <button class="chip layer" id="omrchip" aria-pressed="false" title="Vis grensene mellom prisområdene NO1–NO5 (tilnærmet, basert på fylkesgrenser)">🗺️ Prisområder</button>
-      <button class="chip layer on" id="ncschip" aria-pressed="true" title="Vis/skjul den stiplede sokkelgrensen (Norsk kontinentalsokkel)">〰️ Sokkelgrense</button>
-    </div>
+
     <span id="uoff" title="Dette er et privat, uavhengig prosjekt uten tilknytning til Sokkeldirektoratet eller noe selskap.">Uoffisiell</span>
     <button id="hjelpknapp" title="Vis forklaring">? Hjelp</button>
     <button id="endrknapp" title="Se hva som er endret i dashbordet over tid">🕓 Endringslogg</button>
@@ -495,6 +494,10 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
     <div id="map" role="application" aria-label="Kart over felt p? norsk sokkel. Bruk piltaster for ? panorere, pluss og minus for ? zoome."></div>
     <div id="legend" class="glass"></div>
     <div id="spot" class="glass" hidden></div>
+    <div id="maplayers" class="glass chips" style="flex-direction:column;align-items:stretch;gap:4px">
+      <button class="chip layer" id="omrchip" aria-pressed="false" title="Vis grensene mellom prisområdene NO1–NO5 (tilnærmet, basert på fylkesgrenser)">🗺️ Prisområder</button>
+      <button class="chip layer on" id="ncschip" aria-pressed="true" title="Vis/skjul den stiplede sokkelgrensen (Norsk kontinentalsokkel)">〰️ Sokkelgrense</button>
+    </div>
     <div id="timebar" class="glass">
       <div class="chips" id="viewmode">
         <button class="chip" data-c="0">Per år</button>
