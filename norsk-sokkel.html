@@ -699,6 +699,16 @@ const statN=s=>STATN[s]||s;
 const tc=s=>s.replace(/[A-ZÆØÅ][A-ZÆØÅ0-9/\-\.]*/g,w=>
   (w.length<=3&&!/[0-9]/.test(w)&&w.length>1)?w:w.charAt(0)+w.slice(1).toLowerCase());
 const fmt=(v,d=1)=>v==null||isNaN(v)?'–':v.toLocaleString('nb-NO',{minimumFractionDigits:d,maximumFractionDigits:d});
+/* Delt av addPowerLayers() og addHavVindLayer(): begge viser samme slags
+   hover-popup (navn, type, effekt, arsproduksjon, eier) for et kraftanlegg -
+   kun typetekst og ev. kr/time-linje skiller dem. */
+function powerPopupHtml(p, typeLbl, krLine=''){
+  return `<b>${p.n}</b><br>
+     <span style="color:#64748b">${typeLbl} · ${fmt(+p.mw,+p.mw<10?1:0)} MW`
+    +`${+p.gwh?` · ${gwhStr(+p.gwh,'/år')}`:''}</span>
+     <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}${p.fylke&&!p.omr?` · ${p.fylke}`:''}</span>`
+    + krLine;
+}
 /* Konsekvent GWh/TWh-formatering: over 1000 GWh (=1 TWh) byttes det til TWh,
    sa store nasjonale/regionale summer ikke vises som femsifrede GWh-tall.
    1 desimal under 10 TWh (for a skille f.eks. 1,2 og 1,8 TWh), ellers 0. */
@@ -2393,13 +2403,9 @@ function addPowerLayers(){
       const pris=SPOT&&SPOT[p.omr]!=null?SPOT[p.omr]:null;
       // MW * pris(kr/kWh) * 1000 kWh/MWh = kr per time ved full produksjon
       const kr=pris!=null?p.mw*pris*1000:null;
-      pop.setLngLat(e.lngLat).setHTML(
-        `<b>${p.n}</b><br>
-         <span style="color:#64748b">${p.k==='vann'?'Vannkraft':'Vindkraft'} · ${fmt(+p.mw,0)} MW`
-        +`${+p.gwh?` · ${gwhStr(+p.gwh,'/år')}`:''}</span>
-         <br><span style="color:#64748b;font-size:11px">${p.eier}${p.omr?` · ${p.omr} ${OMRN[p.omr]||''}`:''}</span>`
-        +(kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`:'')
-      ).addTo(map);
+      pop.setLngLat(e.lngLat).setHTML(powerPopupHtml(p, p.k==='vann'?'Vannkraft':'Vindkraft',
+        kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`:''
+      )).addTo(map);
     });
     map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
   });
@@ -2425,11 +2431,8 @@ function addHavVindLayer(){
     const p=e.features[0].properties;
     map.getCanvas().style.cursor='pointer';
     pop.setLngLat(e.lngLat).setHTML(
-      `<b>${p.n}</b><br>
-       <span style="color:#64748b">Flytende havvind (testanlegg) · ${fmt(+p.mw,1)} MW`
-      +`${+p.gwh?` · ${gwhStr(+p.gwh,'/år')}`:''}</span>
-       <br><span style="color:#94a3b8;font-size:11px">${p.eier}${p.fylke?` · utenfor ${p.fylke}`:''}
-       · vises her og ikke i Land-modulen, siden anlegget står til havs</span>`
+      powerPopupHtml(p, 'Flytende havvind (testanlegg)') +
+      `<br><span style="color:#94a3b8;font-size:11px">vises her og ikke i Land-modulen, siden anlegget står til havs</span>`
     ).addTo(map);
   });
   map.on('mouseleave','pwr-hav',()=>{map.getCanvas().style.cursor='';pop.remove();});
