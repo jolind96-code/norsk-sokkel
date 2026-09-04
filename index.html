@@ -95,6 +95,11 @@ header h1 em{font-style:normal;color:var(--acc)}
 #side.land-mode .landfilters{display:flex;flex-direction:column;gap:6px}
 #hdr.land-mode .hav-only-controls{display:none}
 #charts.land-mode #tsmode{display:none}
+/* Land-modus far sin egen, enklere veksler pa "Produksjon over tid"-kortet:
+   fordelt pa prisomrade (bestand, dagens anlegg) eller nasjonal historikk
+   (SSB arstall, ingen prisomrade-oppdeling siden SSB ikke deler tallene slik). */
+#tsmode-land{display:none}
+#charts.land-mode #tsmode-land{display:flex}
 #listtitle{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--tx2);
   font-weight:700;padding:9px 14px 5px}
 #list{flex:1;overflow-y:auto;padding:0 8px 10px}
@@ -544,6 +549,10 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
           <button class="chip" data-m="area">Havområde</button>
           <button class="chip" data-m="top">Felt</button>
           <button class="chip" data-m="verdi">Inntekter</button>
+        </div>
+        <div class="chips" id="tsmode-land">
+          <button class="chip on" data-m="omr">Prisområde</button>
+          <button class="chip" data-m="historikk">Historikk</button>
         </div>
       </h3>
       <div class="scope" id="tsscope"></div>
@@ -1525,11 +1534,13 @@ function drawTs(){
       dataBackground:{lineStyle:{color:'#e5e7eb'},areaStyle:{color:'#f1f5f9'}}}]
   },true);
 }
-/* Kraftverk har ingen ar-for-ar-serie, sa "Produksjon over tid" blir i Land-modus
-   i stedet en fordeling av arsproduksjonen (GWh) pa de fem prisomradene, vann og
-   vind hver for seg. Regnes ut pa nytt fra det gjeldende soket (powFiltered),
-   ikke fra POW.omrader-totalen, sa grafen følger samme utvalg som lista/KPI. */
+/* Kraftverk har ingen ar-for-ar-serie per anlegg, sa "Produksjon over tid" i
+   Land-modus har to visninger (tsModeLand): "omr" - dagens bestand fordelt pa
+   prisomrade (som for), og "historikk" - nasjonal arlig utvikling 1990->na
+   fra SSB (energiformer.json), siden det er der eneste tidsserien finnes. */
+let tsModeLand='omr';
 function drawTsLand(){
+  if(tsModeLand==='historikk'){ drawTsLandHistorikk(); return; }
   const rows=powFiltered().map(r=>r.p);
   const areas=['NO1','NO2','NO3','NO4','NO5'].filter(o=>rows.some(p=>p.omr===o));
   const sum=(o,k)=>rows.filter(p=>p.omr===o&&p.k===k).reduce((a,p)=>a+(p.gwh||0),0);
@@ -1553,8 +1564,41 @@ function drawTsLand(){
       `${ps[0].name}<br>${ps.map(p=>`${p.marker}${p.seriesName}: <b>${fmt(p.value,dec)}</b> ${unitLbl}`).join('<br>')}`}
   },true);
 }
+/* Nasjonal arlig utvikling (SSB, energiformer.json) - eneste reelle tidsserien
+   for kraft, siden NVE ikke har historikk per anlegg. Ikke koblet til
+   kartutvalget (powFiltered), viser alltid heletallet for Norge. */
+function drawTsLandHistorikk(){
+  if(!ENGF){
+    document.getElementById('tsscope').textContent='Laster nasjonal historikk (SSB)…';
+    tsChart.setOption({...BASE,xAxis:{type:'category',data:[]},yAxis:{type:'value'},series:[]},true);
+    return;
+  }
+  document.getElementById('tsscope').textContent=
+    `Norge totalt ${ENGF.ar[0]}–${ENGF.ar[ENGF.ar.length-1]} — nasjonal årsproduksjon per energiform (SSB)`;
+  const maxV=Math.max(...ENGF.vann,...ENGF.vind,...ENGF.sol,...ENGF.varme);
+  const useTwh=maxV>=1000, conv=v=>useTwh?v/1000:v, dec=useTwh?1:0, unitLbl=useTwh?'TWh/år':'GWh/år';
+  const rows=[['Vannkraft',ENGF.vann,ENGFC.vann],['Vindkraft',ENGF.vind,ENGFC.vind],
+    ['Solkraft',ENGF.sol,ENGFC.sol],['Varmekraft',ENGF.varme,ENGFC.varme]];
+  tsChart.setOption({...BASE,
+    animation:false,
+    grid:{left:46,right:14,top:26,bottom:34},
+    xAxis:{type:'category',data:ENGF.ar,boundaryGap:false,...AX},
+    yAxis:{type:'value',name:unitLbl,nameTextStyle:{color:'#64748b',fontSize:9,align:'left'},...AX},
+    series:rows.map(([name,data,color])=>({name,type:'line',color,
+      data:data.map(v=>+conv(v).toFixed(dec)),
+      showSymbol:false,lineStyle:{width:2}})),
+    tooltip:{...BASE.tooltip,trigger:'axis',formatter:ps=>
+      `${ps[0].name}<br>${ps.map(p=>`${p.marker}${p.seriesName}: <b>${fmt(p.value,dec)}</b> ${unitLbl}`).join('<br>')}`},
+    dataZoom:[{type:'inside'},{type:'slider',height:13,bottom:4,borderColor:'#e5e7eb',
+      fillerColor:'rgba(79,70,229,.10)',handleStyle:{color:'#4f46e5'},
+      textStyle:{color:'#64748b',fontSize:9},moveHandleSize:3,
+      dataBackground:{lineStyle:{color:'#e5e7eb'},areaStyle:{color:'#f1f5f9'}}}]
+  },true);
+}
 document.getElementById('tsmode').onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
   tsMode=b.dataset.m;[...b.parentElement.children].forEach(c=>c.classList.toggle('on',c===b));drawTs();writeUrlState();};
+document.getElementById('tsmode-land').onclick=e=>{const b=e.target.closest('.chip'); if(!b)return;
+  tsModeLand=b.dataset.m;[...b.parentElement.children].forEach(c=>c.classList.toggle('on',c===b));drawTsLand();};
 
 function drawRank(){
   if(HL==='land'){ drawRankLand(); return; }
