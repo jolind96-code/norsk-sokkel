@@ -1,0 +1,38 @@
+name: Oppdater priser daglig
+
+# Henter fersk Brent-spotpris (og gass/valutakurs) fra EIA/Norges Bank hver
+# dag og bygger den delbare norsk-sokkel.html på nytt, slik at
+# sanntidstelleren i appen ikke blir liggende flere dager bak kilden bare
+# fordi ingen har kjørt build-skriptene manuelt.
+on:
+  schedule:
+    # 06:15 UTC - EIAs daglige Brent-notering er normalt klar da
+    - cron: '15 6 * * *'
+  workflow_dispatch: {}   # kan også trigges manuelt fra Actions-fanen
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bygg priser og delbar HTML
+        run: |
+          python build_prices.py
+          python build_single.py
+      - name: Commit og push hvis noe endret seg
+        run: |
+          git config user.name "sokkel-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add prices.json norsk-sokkel.html
+            git commit -m "Automatisk prisoppdatering ($(date -u +%Y-%m-%d))"
+            git push
+          else
+            echo "Ingen endringer i priser i dag."
+          fi
