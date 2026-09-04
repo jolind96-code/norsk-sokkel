@@ -1829,6 +1829,11 @@ function drawPowerDetail(el){
   const pris=SPOT&&SPOT[p.omr]!=null?SPOT[p.omr]:null;
   const krTime=pris!=null?p.mw*pris*1000:null;             // full effekt * spotpris
   const krAar=p.gwh?p.gwh*1e6*(pris||0):null;              // grovt: årsproduksjon * dagens pris
+  /* Kapasitetsfaktor - samme utregning som KPI-kortet (drawKpisLand) - brukes
+     til a anslå et REALISTISK kr/time-tall ved siden av maks-tallet, sa
+     brukeren ikke tror "ved full produksjon" er hva anlegget faktisk tjener. */
+  const kapfak=(p.mw>0 && p.gwh)?Math.min(1,p.gwh*1000/(p.mw*8760)):null;
+  const krTimeForventet=(krTime!=null && kapfak!=null)?krTime*kapfak:null;
   el.innerHTML=`
     <div style="font-size:16px;font-weight:700;letter-spacing:-.3px;margin-bottom:3px">
       <span class="dot" style="background:${POWC[p.k]}"></span>${p.n}</div>
@@ -1843,6 +1848,8 @@ function drawPowerDetail(el){
     ${krTime!=null?`<div class="inc">
       <div class="inc-h">Verdi ved full produksjon nå</div>
       <div class="inc-v">${fmtNokPresis(krTime)}<span style="font-size:13px;color:var(--tx3)"> / time</span></div>
+      ${krTimeForventet!=null?`<div class="inc-s" style="margin-top:5px">Forventet, gitt anleggets kapasitetsfaktor (${fmt(kapfak*100,0)} %):
+        <b style="color:#0f172a">${fmtNokPresis(krTimeForventet)}</b> / time</div>`:''}
       ${krAar!=null?`<div class="inc-s">Tilsvarer omtrent ${fmtNokPresis(krAar)} i året, gitt dagens spotpris i ${p.omr} og full ${p.k==='vann'?'tilsig':'vind'} hele tiden - reelt lavere.</div>`:''}
       <div class="inc-s" style="margin-top:3px;color:var(--tx3)">Teoretisk tak basert på installert effekt, ikke faktisk produksjon time for time. Uoffisielt anslag.</div>
     </div>`:'<div class="note">Mangler spotpris for prisområdet akkurat nå.</div>'}
@@ -2406,8 +2413,11 @@ function addPowerLayers(){
       const pris=SPOT&&SPOT[p.omr]!=null?SPOT[p.omr]:null;
       // MW * pris(kr/kWh) * 1000 kWh/MWh = kr per time ved full produksjon
       const kr=pris!=null?p.mw*pris*1000:null;
+      const kapfak=(p.mw>0 && p.gwh)?Math.min(1,p.gwh*1000/(p.mw*8760)):null;
+      const krForv=(kr!=null && kapfak!=null)?kr*kapfak:null;
       pop.setLngLat(e.lngLat).setHTML(powerPopupHtml(p, p.k==='vann'?'Vannkraft':'Vindkraft',
-        kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`:''
+        kr!=null?`<br><span style="color:#b45309;font-size:11px">Ved full produksjon nå: ${fmtNokPresis(kr)}/time</span>`
+          +(krForv!=null?`<br><span style="color:#b45309;font-size:11px">Forventet (kapasitetsfaktor ${fmt(kapfak*100,0)} %): ${fmtNokPresis(krForv)}/time</span>`:''):''
       )).addTo(map);
     });
     map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
