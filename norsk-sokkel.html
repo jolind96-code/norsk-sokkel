@@ -516,6 +516,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
     </div>
     <div class="chips" style="margin-left:10px">
       <button class="chip layer" id="omrchip" aria-pressed="false" title="Vis grensene mellom prisområdene NO1–NO5 (tilnærmet, basert på fylkesgrenser)">🗺️ Prisområder</button>
+      <button class="chip layer on" id="ncschip" aria-pressed="true" title="Vis/skjul den stiplede sokkelgrensen (Norsk kontinentalsokkel)">〰️ Sokkelgrense</button>
     </div>
     <span id="uoff" title="Dette er et privat, uavhengig prosjekt uten tilknytning til Sokkeldirektoratet eller noe selskap.">Uoffisiell</span>
     <button id="hjelpknapp" title="Vis forklaring">? Hjelp</button>
@@ -712,6 +713,7 @@ function readUrlState(){
   if(p.has('op'))  out.op  = p.get('op');
   if(p.has('q'))   out.q   = p.get('q');
   if(p.has('omr')) out.omr = p.get('omr')==='1';
+  if(p.has('ncs')) out.ncs = p.get('ncs')!=='0';
   if(p.has('sel')) out.sel = p.get('sel');
   if(p.has('pow')) out.pow = +p.get('pow');
   return out;
@@ -735,6 +737,7 @@ function writeUrlState(){
   const q=document.getElementById('search').value.trim();
   if(q) p.set('q',q);
   if(omrOn) p.set('omr','1');
+  if(!ncsOn) p.set('ncs','0');
   if(selected) p.set('sel',selected);
   if(selectedPower!=null) p.set('pow',selectedPower);
   const str=p.toString();
@@ -754,6 +757,7 @@ async function restoreUrlSelection(){
     select(st.sel);
   }
   if(st.omr) await toggleOmr();
+  if(st.ncs===false) toggleNcs();
 }
 
 /* ---------- init ---------- */
@@ -883,6 +887,7 @@ function buildChips(){
   document.getElementById('search').oninput=refresh;
   document.getElementById('havland').onclick=e=>{const b=e.target.closest('.hlbtn'); if(b) setHL(b.dataset.hl);};
   document.getElementById('omrchip').onclick=toggleOmr;
+  document.getElementById('ncschip').onclick=toggleNcs;
   document.getElementById('csvbtn').onclick=()=>{ if(HL==='land') exportPowerCsv(); else exportFieldsCsv(); };
 }
 
@@ -2290,6 +2295,17 @@ function addPowerLayers(){
    gar - ikke en offisiell nettopologi. Det star ogsa i fotnoten i kartet. */
 const OMR_COLOR={NO1:'#f97316',NO2:'#a855f7',NO3:'#22c55e',NO4:'#38bdf8',NO5:'#facc15'};
 let OMR=null, omrOn=false;
+let ncsOn=true;
+function toggleNcs(){
+  ncsOn=!ncsOn;
+  const chip=document.getElementById('ncschip');
+  chip.classList.toggle('on',ncsOn);
+  chip.setAttribute('aria-pressed',String(ncsOn));
+  const v=ncsOn?'visible':'none';
+  ['ncs-fill','ncs-glow','ncs-line','ncs-label'].forEach(l=>{
+    if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v);});
+  writeUrlState();
+}
 async function toggleOmr(){
   omrOn=!omrOn;
   const chip=document.getElementById('omrchip');
