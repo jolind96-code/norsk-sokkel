@@ -1835,7 +1835,7 @@ function drawRank(){
     `topp 15 · ${cum?`kumulativt t.o.m. ${year}`:year} <span class="enh">${uLabel(metric)}</span>`;
   rankChart.setOption({...BASE,legend:{show:false},
     grid:{left:100,right:48,top:6,bottom:6},
-    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${fmt(p.value,2)}</b> ${uLabel(metric)}`},
+    tooltip:{...BASE.tooltip,trigger:'item',formatter:p=>`${p.name}<br><b>${fmt(p.value,2)}</b> ${uLabel(metric)}`},
     xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
     yAxis:{type:'category',data:rows.map(r=>tc(r.f.name)),...AX,
       axisLabel:{color:selected?'#94a3b8':'#334155',fontSize:10.5,fontWeight:500},
@@ -1859,7 +1859,7 @@ function drawRankLand(){
     `topp 15 · årsproduksjon <span class="enh">GWh/TWh per år</span>`;
   rankChart.setOption({...BASE,legend:{show:false},
     grid:{left:100,right:48,top:6,bottom:6},
-    tooltip:{...BASE.tooltip,formatter:p=>`${p.name}<br><b>${gwhStr(p.value,'/år')}</b>`},
+    tooltip:{...BASE.tooltip,trigger:'item',formatter:p=>`${p.name}<br><b>${gwhStr(p.value,'/år')}</b>`},
     xAxis:{type:'value',...AX,splitLine:{show:false},axisLabel:{show:false},axisLine:{show:false}},
     yAxis:{type:'category',data:rows.map(p=>p.n),...AX,
       axisLabel:{color:selectedPower!=null?'#94a3b8':'#334155',fontSize:10.5,fontWeight:500},
