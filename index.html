@@ -204,6 +204,9 @@ header h1 em{font-style:normal;color:var(--acc)}
 .tk2c{min-width:0}
 .tk2c .lbl{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-toggle{background:none;border:none;color:var(--acc);font-size:9.5px;font-weight:700;
+  cursor:pointer;padding:0;margin-left:auto;text-decoration:underline;flex:0 0 auto}
+.tk-toggle:hover{color:var(--acc2)}
 .tk2c .lbl i{width:8px;height:8px;border-radius:2px;display:inline-block;flex:0 0 auto}
 .tk2c .val{font-size:21px;font-weight:700;letter-spacing:-.8px;color:#b45309;
   font-variant-numeric:tabular-nums;line-height:1.2;margin:2px 0 1px}
@@ -521,8 +524,14 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
             <div class="val" id="tk-nok" aria-live="off">0 kr</div>
             <div class="rate" id="tk-sub"></div>
           </div>
+          <div class="tk2c">
+            <div class="lbl"><i style="background:#2563eb"></i>Strøm på land
+              <button id="tk-pow-toggle" class="tk-toggle" type="button" aria-expanded="false">Vis kilder ▾</button></div>
+            <div class="val blaa" id="tk-pow" aria-live="off">0 kr</div>
+            <div class="rate" id="tk-pow-sub"></div>
+          </div>
         </div>
-        <div class="tk3">
+        <div class="tk3" id="tk3wrap" hidden>
           <div class="tk3c">
             <div class="lbl"><i style="background:#0ea5e9"></i>Vannkraft</div>
             <div class="val" id="tk-vann" aria-live="off">0 kr</div>
@@ -793,6 +802,18 @@ fetch('data.json').then(r=>r.json()).then(d=>{
   }).catch(()=>{});
 
   initHjelp();
+
+  /* "Vis kilder"-lenke: kraftkildene (vann/vind/sol/varme) er kollapset som
+     standard bak ETT samlet "Strom pa land"-tall - mindre stoy enn 4 samtidig
+     tikkende tall. Utforsk enkeltkilder ved behov. */
+  const powToggle=document.getElementById('tk-pow-toggle'), pow3=document.getElementById('tk3wrap');
+  powToggle.onclick=()=>{
+    const open=pow3.hidden;
+    pow3.hidden=!open;
+    powToggle.textContent=open?'Skjul kilder ▴':'Vis kilder ▾';
+    powToggle.setAttribute('aria-expanded',String(open));
+  };
+
 
   /* Inntektsteller: prisene lastes etter dataene, telleren starter nar de er klare. */
   fetch('prices.json').then(r=>r.json()).then(p=>{
@@ -2138,12 +2159,25 @@ function drawTick(){
       ve.textContent='–'; se.textContent='henter priser…';
     }
   }
+  /* Samlet "Stroem pa land" - hovedtallet for kraft, sa brukeren ser ETT tall
+     som standard i stedet for 4 samtidig tikkende (se sense-check-analyse
+     4. sep: 6 samtidige tellere var kognitivt stoyende). De fire kildene kan
+     fortsatt utforskes enkeltvis via "Vis kilder"-lenken. */
+  const powSumRate=vannRate+vindRate+solRate+varmeRate;
+  const pe=document.getElementById('tk-pow'), pse=document.getElementById('tk-pow-sub');
+  if(powSumRate){
+    pe.textContent=(Math.round(powSumRate*s/10)*10).toLocaleString('nb-NO')+' kr';
+    const pps=`${fmtNok(powSumRate)} i sekundet`;
+    if(lastPowSub!==pps){pse.innerHTML=pps;lastPowSub=pps;}
+  }else if(pe.textContent!=='–'){
+    pe.textContent='–'; pse.textContent='henter priser…';
+  }
 
   const kl=new Date().toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   if(kl!==lastKl){document.getElementById('tk-klokke').textContent=kl;lastKl=kl;}
   drawFun(v);
 }
-let lastTime='',lastSub='',lastFun='',lastKl='',lastSrcSub={};
+let lastTime='',lastSub='',lastFun='',lastKl='',lastSrcSub={},lastPowSub='';
 
 /* Morsom sammenligning. Prisene er grove anslag i 2026-kroner og skal kun
    gi en folelse av storrelsesorden. Velges tilfeldig og byttes hvert 6. sekund. */
