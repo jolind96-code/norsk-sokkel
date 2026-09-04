@@ -1679,7 +1679,14 @@ function fieldYrs(f){
   return Array.from({length:y1-y0+1},(_,i)=>y0+i);
 }
 const PAL=['#4f46e5','#10b981','#f59e0b','#ef4444','#a855f7','#0ea5e9','#fb923c','#6366f1'];
-const TYPEC={oil:'#10b981',gas:'#ef4444',ngl:'#0ea5e9',con:'#a855f7'};
+/* Delt fargekilde: Olje/Gass/Kondensat skal ha SAMME farge her (TYPEC, brukt i
+   "Produksjon over tid") som feltets hydrokarbontype-farge andre steder i appen
+   (HC, brukt i Rangering/kart/liste) - de to var tidligere separate konstanter
+   med identiske hex-verdier ved en tilfeldighet, noe som lett kunne drifte fra
+   hverandre ved en fremtidig endring av bare den ene. NGL har ingen felttype-
+   motpart (det er en produktkomponent, ikke en feltklassifisering), og beholder
+   derfor sin egen farge. */
+const TYPEC={oil:HC.OIL,gas:HC.GAS,ngl:'#0ea5e9',con:HC['GAS/CONDENSATE']};
 
 function area(name,data,color){return{name,type:'line',stack:'s',areaStyle:{opacity:.62},
   symbol:'none',lineStyle:{width:0},data,color};}
@@ -1727,7 +1734,12 @@ function drawTs(){
       yrs().map((_,i)=>C(filtered.filter(f=>f.area===a).reduce((s,f)=>s+S(f)[metric][i],0))),PAL[ix%PAL.length]));
   }else{
     const top=[...filtered].sort((a,b)=>b.totalOe-a.totalOe).slice(0,8);
-    scope=`${filtered.length} felt i utvalget — ${m.l}, 8 største felt + øvrige`;
+    /* Merk: fargene her identifiserer det ENKELTE feltet (rullerende palett), ikke
+       hydrokarbontypen som i Rangering/kart/liste - flere av topp-8-feltene er
+       samme type (f.eks. fire "Olje"-felt), og ville blitt umulige å skille fra
+       hverandre med kun 4 typefarger. Forklares derfor eksplisitt i scope-teksten
+       under, slik at det ikke fremstår som en inkonsekvent fargekoding. */
+    scope=`${filtered.length} felt i utvalget — ${m.l}, 8 største felt + øvrige (farger = enkeltfelt, ikke type)`;
     series=top.map((f,ix)=>area(tc(f.name),S(f)[metric].map(C),PAL[ix%PAL.length]));
     series.push(area('Øvrige',yrs().map((_,i)=>
       C(filtered.filter(f=>!top.includes(f)).reduce((s,f)=>s+S(f)[metric][i],0))),'#94a3b8'));
