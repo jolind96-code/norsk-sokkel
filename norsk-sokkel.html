@@ -1947,7 +1947,7 @@ function drawPowerDetail(el){
       ${krTimeForventet!=null?`<div class="inc-s" style="margin-top:5px">Forventet, gitt anleggets kapasitetsfaktor (${fmt(kapfak*100,0)} %):
         <b style="color:#0f172a">${fmtNokPresis(krTimeForventet)}</b> / time</div>`:''}
       ${krAar!=null?`<div class="inc-s">Tilsvarer omtrent ${fmtNokPresis(krAar)} i året, gitt dagens spotpris i ${p.omr} og full ${p.k==='vann'?'tilsig':'vind'} hele tiden - reelt lavere.</div>`:''}
-      <div class="inc-s" style="margin-top:3px;color:var(--tx3)">Teoretisk tak basert på installert effekt, ikke faktisk produksjon time for time. Uoffisielt anslag.</div>
+      <div class="inc-s" style="margin-top:3px;color:var(--tx3)">Teoretisk tak basert på installert effekt, ikke faktisk produksjon time for time.</div>
     </div>`:'<div class="note">Mangler spotpris for prisområdet akkurat nå.</div>'}
     <div class="note" style="margin-top:9px">Kilde: NVE (anleggsregister) og hvakosterstrommen.no (spotpris).</div>`;
 }
@@ -1966,7 +1966,7 @@ function inntektBoks(f){
     <div class="inc-s">Produsert mengde × Brent ${r.brent.toFixed(0)} $/fat
       og gass ${r.gas.toFixed(1)} $/MMBtu, omregnet med ${r.fx.toFixed(2)} kr/$.</div>
     <div class="inc-s" style="margin-top:3px;color:var(--tx3)">
-      Bruttoverdi, ikke salgsinntekt eller fortjeneste. Uoffisielt anslag.</div>
+      Bruttoverdi, ikke salgsinntekt eller fortjeneste.</div>
   </div>`;
 }
 
