@@ -340,8 +340,10 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
 <div id="app">
   <div id="hjelp" class="skjult"><div class="hb">
     <h2>Norsk energiproduksjon</h2>
-    <div class="lead">To likeverdige deler av norsk energiproduksjon, samme kart: <b>olje og gass</b> fra
-      feltene på sokkelen (fra det første funnet i 1971) og <b>kraft fra vann og vind</b> på land.
+    <div class="lead">Norge er fortsatt en oljenasjon i kroner regnet — olje- og gassalget er verdt
+      mange ganger mer enn all norsk kraftproduksjon til sammen (se sammenligningen nederst i høyre
+      marg). Samme kart viser begge deler: <b>olje og gass</b> fra feltene på sokkelen
+      (fra det første funnet i 1971) og <b>kraft fra vann og vind</b> på land.
       Alle tall kommer fra Sokkeldirektoratet og NVE.</div>
     <ol>
       <li><b>Boblene i kartet</b> er felt til havs og kraftanlegg på land. Jo større boble, jo mer produseres/leveres.</li>
@@ -2666,9 +2668,9 @@ function drawCompare(){
   el.innerHTML=`<div class="chead"><span>Energi per år</span><span>Verdi nå</span></div>`
     +rad('Offshore olje og gass','#f59e0b',oilTwh,tickRate)
     +rad('Strøm på land','#2563eb',powTwh,powRate)
-    +`<div class="fot">Olje og gass gir <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b>
-       så mye energi som all norsk vann- og vindkraft, men er verdt bare
-       <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye.</div>`;
+    +`<div class="fot">Norge er fortsatt en oljenasjon: olje og gass gir <b>${fE.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b>
+       så mye energi som all norsk vann- og vindkraft — og er fortsatt verdt hele
+       <b>${fK.toLocaleString('nb-NO',{maximumFractionDigits:1})}×</b> så mye i kroner.</div>`;
   tegnNote();
 }
 
