@@ -2293,6 +2293,17 @@ function bandColor(vOe){          // vOe i mill Sm3 o.e. (ukonvertert)
    Nyeste forst. Datoene er filsystem-tidsstemplene til okt-sjekkpunktene,
    ikke gjettet i etterkant. */
 const CHANGELOG=[
+ {dato:'4. september 2026', pkt:[
+   'Havvind (f.eks. METCentre Karmøy) vises nå i Hav-modulen i stedet for Land, siden det er kraftproduksjon til havs.',
+   'Land-modul: velg mellom Vannkraft, Vindkraft, Solkraft og Varmekraft som egne kraftkilder.',
+   'Prisområde-kartlaget viser nå kun prisområdegrensene NO1–NO5, ikke interne fylkesgrenser. Sokkelgrense er av som standard.',
+   'GWh/TWh brukes nå konsekvent (bytter til TWh over 1000 GWh), og store kr/time-tall (over 1 mill.) vises med én desimal.',
+   'Ny nasjonal trendgraf for kraftproduksjon 1990–i dag i Land-modulen ("Historikk").',
+   'Kraftanlegg viser nå forventet kr/time (basert på kapasitetsfaktor) i tillegg til verdi ved full produksjon.',
+   'Brent-spotpris hentes oftere, så den ikke lenger ligger flere dager etter.',
+   'Raffinert budskap: Norge er fortsatt en oljenasjon i kroner regnet, tydeligere forklart i introboksen og i sammenligningen olje/gass vs. kraft.',
+   'Fiks: header-boksene (Enhet/Måltall) kolliderte med resten av toppmenyen i Hav-modus.'
+ ]},
  {dato:'3. september 2026', pkt:[
    'Delbar lenke: hele visningen (år, enhet, filtre, valgt felt/kraftanlegg, Hav/Land) kan nå kopieres og deles som URL.',
    'Tilgjengelighet: bedre tekstkontrast, felt-/kraftanlegglistene er tastaturoperable, og feltomriss får eget strekmønster per type (ikke bare farge) for rød-grønn fargeblindhet.',
