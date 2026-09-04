@@ -674,6 +674,7 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
     </div>
     <div class="card">
       <h3>Produksjon over tid <span class="spacer"></span>
+        <button class="chip" id="tspng" title="Last ned denne grafen som bilde (PNG)">⬇ PNG</button>
         <div class="chips" id="tsmode">
           <button class="chip on" data-m="type">Produkt</button>
           <button class="chip" data-m="area">Havområde</button>
@@ -689,7 +690,9 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       <div class="chart" id="ts"></div>
     </div>
     <div class="card">
-      <h3>Rangering <span class="spacer"></span><span id="ranklbl" style="color:var(--tx3);font-weight:400;text-transform:none;letter-spacing:0"></span></h3>
+      <h3>Rangering <span class="spacer"></span><span id="ranklbl" style="color:var(--tx3);font-weight:400;text-transform:none;letter-spacing:0"></span>
+        <button class="chip" id="rankpng" title="Last ned denne grafen som bilde (PNG)">⬇ PNG</button>
+      </h3>
       <div class="chart" id="rank" style="height:235px"></div>
     </div>
   </section>
@@ -1017,8 +1020,21 @@ function buildChips(){
   document.getElementById('omrchip').onclick=toggleOmr;
   document.getElementById('ncschip').onclick=toggleNcs;
   document.getElementById('csvbtn').onclick=()=>{ if(HL==='land') exportPowerCsv(); else exportFieldsCsv(); };
+  document.getElementById('tspng').onclick=()=>downloadChartPng(tsChart,'produksjon-over-tid');
+  document.getElementById('rankpng').onclick=()=>downloadChartPng(rankChart,'rangering');
 }
 
+/* ---------- PNG-eksport av grafer (graf-png-eksport) ----------
+   ECharts har innebygd getDataURL(); vi ber om hvit bakgrunn og 2x
+   pikseltetthet slik at bildet er brukbart i presentasjoner/rapporter,
+   ikke bare på skjerm. */
+function downloadChartPng(chart,filenameBase){
+  if(!chart) return;
+  const url=chart.getDataURL({type:'png',pixelRatio:2,backgroundColor:'#fff'});
+  const a=document.createElement('a');
+  a.href=url; a.download=`${filenameBase}-${new Date().toISOString().slice(0,10)}.png`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
 /* ---------- CSV-eksport (dataeksport-csv) ----------
    Forsterker "åpne data"-budskapet: folk kan ta med seg tallene selv,
    ikke bare se dem. Eksporterer nøyaktig det som vises i lista akkurat nå
