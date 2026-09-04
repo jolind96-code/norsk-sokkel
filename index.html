@@ -55,7 +55,7 @@ header h1 em{font-style:normal;color:var(--acc)}
 
 /* venstre */
 #side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.shead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:9px}
+.shead{padding:14px 14px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
 #search{width:100%;padding:8px 11px;background:var(--bg);border:1px solid var(--line);
   border-radius:var(--r);color:var(--tx);font-size:12px;outline:none}
 #search:focus{border-color:var(--acc)}
@@ -81,6 +81,12 @@ header h1 em{font-style:normal;color:var(--acc)}
 #reset:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
 #reset:disabled{opacity:.35;cursor:default}
 .flabel{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--tx3);font-weight:700;margin-bottom:-3px}
+/* Filterseksjonen (søk/operatør/status/havområde/type) virket tett og
+   ugjennomsiktig i Hav-modus - hver gruppe (label+kontroll) far na litt
+   luft mellom seg, i stedet for at alt klistret sammen i en lang kolonne. */
+.fieldfilters{display:flex;flex-direction:column;gap:11px}
+.fgroup{display:flex;flex-direction:column;gap:6px}
+.fgroup .flabel{margin-bottom:0}
 /* Land-modus: felt-spesifikke filtre (operatør/status/havområde/type) og
    "viser X av Y felt"-linjen gir ingen mening for kraftverk, så de skjules.
    Søkefeltet virker fortsatt (powFiltered() matcher navn/eier). */
@@ -428,14 +434,22 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
     <div class="shead">
       <input id="search" placeholder="Søk felt eller operatør…">
       <div class="fieldfilters">
-        <div class="flabel">Operatør</div>
-        <select id="cop" aria-label="Filtrer p? operat?r"></select>
-        <div class="flabel">Status</div>
-        <div class="chips" id="cstatus"></div>
-        <div class="flabel">Havområde</div>
-        <div class="chips" id="carea"></div>
-        <div class="flabel">Type</div>
-        <div class="chips" id="chc"></div>
+        <div class="fgroup">
+          <div class="flabel">Operatør</div>
+          <select id="cop" aria-label="Filtrer p? operat?r"></select>
+        </div>
+        <div class="fgroup">
+          <div class="flabel">Status</div>
+          <div class="chips" id="cstatus"></div>
+        </div>
+        <div class="fgroup">
+          <div class="flabel">Havområde</div>
+          <div class="chips" id="carea"></div>
+        </div>
+        <div class="fgroup">
+          <div class="flabel">Type</div>
+          <div class="chips" id="chc"></div>
+        </div>
       </div>
       <div id="active"></div>
     </div>
