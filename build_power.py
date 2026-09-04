@@ -27,6 +27,12 @@ GIS_WIND = ("https://gis3.nve.no/arcgis/rest/services/mapservice/VindkraftView1/
 
 MIN_MW = 1.0          # dropp mikrokraftverk - de er mange og bidrar lite
 
+# Noen "vindkraft"-anlegg fra NVEs onshore-API er egentlig FLYTENDE HAVVIND
+# (testanlegg til havs, ikke landbasert produksjon) - matches pa navn siden
+# NVE-APIet ikke har et eget land/hav-flagg. Flagges "offshore":true her sa
+# de kan vises i Hav-modulen i stedet for Land i index.html.
+OFFSHORE_VIND_NAVN = {"METCentre Karmøy"}
+
 
 def get_json(url, timeout=240):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout) as r:
@@ -132,13 +138,18 @@ def main():
             "fylke": (p.get("Fylke") or "").strip(),
             "aar": int(str(p.get("IdriftsettelseForsteByggetrinn") or "0")[:4]) or None,
             "turb": p.get("AntallOperativeTurbiner"),
+            "offshore": (p.get("Navn") or "").strip() in OFFSHORE_VIND_NAVN,
         })
 
     plants.sort(key=lambda x: -x["mw"])
 
-    # summer per prisomrade - brukes til inntekt per omrade i nettleseren
+    # summer per prisomrade - brukes til inntekt per omrade i nettleseren.
+    # Havvind (offshore) holdes utenfor - den hoerer til Hav-modulen, ikke
+    # "stroem paa land"-tallene.
     omr = {}
     for p in plants:
+        if p.get("offshore"):
+            continue
         o = p["omr"] or "ukjent"
         d = omr.setdefault(o, {"vann_mw": 0.0, "vind_mw": 0.0,
                                "vann_gwh": 0.0, "vind_gwh": 0.0, "n": 0})

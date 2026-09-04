@@ -58,7 +58,9 @@ repl = {
         "Promise.resolve(__FACILITIES_JSON__)",
     "fetch('partners.json').then(r=>r.json())":
         "Promise.resolve(__PARTNERS_JSON__)",
-    "POW=await (await fetch('power.json')).json();":
+    "fetch('power.json',{cache:'no-store'}).then(r=>r.json())":
+        "Promise.resolve(__POWER_JSON__)",
+    "POW=await (await fetch('power.json',{cache:'no-store'})).json();":
         "POW=__POWER_JSON__;",
     "OMR=await (await fetch('omrader.geojson')).json();":
         "OMR=__OMRADER_GEOJSON__;",

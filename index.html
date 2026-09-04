@@ -737,7 +737,7 @@ fetch('data.json').then(r=>r.json()).then(d=>{
     requestAnimationFrame(loop);
     /* Stromdata lastes med en gang sa sammenligningen i telleren alltid vises.
        Selve kartlaget legges forst til nar brukeren slar det pa. */
-    fetch('power.json').then(r=>r.json()).then(pw=>{ POW=pw; return loadSpot(); })
+    fetch('power.json',{cache:'no-store'}).then(r=>r.json()).then(pw=>{ POW=pw; addHavVindLayer(); return loadSpot(); })
       .then(()=>drawCompare()).catch(()=>{});
     /* Nasjonale energiform-totaler (SSB, arlig) - til KPI-kortet i Land-
        modulen OG til sol/varme-anslagene i inntektstelleren (se drawCompare). */
@@ -1118,6 +1118,7 @@ function buildMap(){
         .addTo(map);
     });
     mapReady=true; refresh(); fitToFields();
+    addHavVindLayer();          // POW kan allerede vaere lastet - fanger begge rekkefolger
     restoreUrlSelection();      // valgt felt/kraftanlegg/Hav-Land/prisomrader fra delt lenke
   });
 }
@@ -1261,6 +1262,7 @@ function powFiltered(){
   if(!POW) return [];
   const q=document.getElementById('search').value.trim().toLowerCase();
   return POW.verk.map((p,rank)=>({p,rank}))
+    .filter(({p})=>!p.offshore)                        // havvind vises i Hav, ikke her
     .filter(({p})=>kildeOn[p.k])
     .filter(({p})=>!q||p.n.toLowerCase().includes(q)||(p.eier||'').toLowerCase().includes(q));
 }
@@ -2164,7 +2166,7 @@ async function setPowerVisible(on){
     if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v);});
   if(!on){ vis('none'); return; }
   if(!POW){
-    try{ POW=await (await fetch('power.json')).json(); }
+    try{ POW=await (await fetch('power.json',{cache:'no-store'})).json(); }
     catch(e){ powOn=false; document.getElementById('spot').hidden=true; return; }
   }
   if(!map.getSource('pwr')) addPowerLayers();
@@ -2182,6 +2184,7 @@ async function setHL(hl){
   if(HL===hl) return;
   HL=hl;
   document.querySelectorAll('#havland .hlbtn').forEach(b=>b.classList.toggle('on',b.dataset.hl===hl));
+  if(map.getLayer('pwr-hav')) map.setLayoutProperty('pwr-hav','visibility', hl==='hav'?'visible':'none');
   if(hl==='land'){
     selected=null; if(popup) popup.remove();
     setFieldLayers('none');
@@ -2216,7 +2219,7 @@ function addPowerLayers(){
   const feats=POW.verk.map((p,i)=>({type:'Feature',
     geometry:{type:'Point',coordinates:p.c},
     properties:{n:p.n,k:p.k,mw:p.mw,gwh:p.gwh,eier:p.eier,omr:p.omr,
-      fylke:p.fylke,aar:p.aar||'',turb:p.turb||0,
+      fylke:p.fylke,aar:p.aar||'',turb:p.turb||0,offshore:!!p.offshore,
       color:POWC[p.k],
       /* Arealproporsjonal radius, samme prinsipp som feltboblene. */
       r:Math.max(2.4,Math.sqrt(p.mw)*0.8),
@@ -2270,6 +2273,36 @@ function addPowerLayers(){
   });
 }
 
+/* Havvind (f.eks. METCentre Karmøy) er testanlegg TIL HAVS, ikke landbasert
+   vindkraft - de hoerer visuelt hjemme i Hav-modulen, ikke i Land sammen med
+   ekte landvind. Eget, lite lag, uavhengig av setPowerVisible()/addPowerLayers()
+   sa det vises i Hav uten at hele kraftverk-punktlaget ma lastes/vises der. */
+function addHavVindLayer(){
+  if(!POW || !mapReady || map.getSource('pwr-hav')) return;
+  const feats=POW.verk.filter(p=>p.offshore).map(p=>({type:'Feature',
+    geometry:{type:'Point',coordinates:p.c},
+    properties:{n:p.n,mw:p.mw,gwh:p.gwh,eier:p.eier,fylke:p.fylke,aar:p.aar||''}}));
+  if(!feats.length) return;
+  map.addSource('pwr-hav',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+  map.addLayer({id:'pwr-hav',type:'circle',source:'pwr-hav',
+    layout:{visibility: HL==='hav'?'visible':'none'},
+    paint:{'circle-radius':7,'circle-color':POWC.vind,'circle-opacity':0.55,
+           'circle-stroke-color':'#ffffff','circle-stroke-width':1.5}},'lbl');
+  const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:10});
+  map.on('mousemove','pwr-hav',e=>{
+    const p=e.features[0].properties;
+    map.getCanvas().style.cursor='pointer';
+    pop.setLngLat(e.lngLat).setHTML(
+      `<b>${p.n}</b><br>
+       <span style="color:#64748b">Flytende havvind (testanlegg) · ${fmt(+p.mw,1)} MW`
+      +`${+p.gwh?` · ${fmt(+p.gwh,0)} GWh/år`:''}</span>
+       <br><span style="color:#94a3b8;font-size:11px">${p.eier}${p.fylke?` · utenfor ${p.fylke}`:''}
+       · vises her og ikke i Land-modulen, siden anlegget står til havs</span>`
+    ).addTo(map);
+  });
+  map.on('mouseleave','pwr-hav',()=>{map.getCanvas().style.cursor='';pop.remove();});
+}
+
 /* ---------- kraftkilde-filter (Vann/Vind/Sol/Varme) ---------- */
 /* Vann/vind: reelt filter pa punktlaget (POW.verk har begge). Sol/varme:
    ingen enkeltanlegg finnes - i stedet et EGET, tydelig markert anslagslag
@@ -2277,7 +2310,8 @@ function addPowerLayers(){
 function updateKildeFilters(){
   if(!map.getSource('pwr')) return;
   const inc=['vann','vind'].filter(k=>kildeOn[k]);
-  const kindFilt=['in',['get','k'],['literal', inc.length?inc:['__ingen__']]];
+  const notOffshore=['!=',['get','offshore'],true];   // havvind (METCentre Karmøy o.l.) hoerer til Hav, ikke Land
+  const kindFilt=['all',['in',['get','k'],['literal', inc.length?inc:['__ingen__']]], notOffshore];
   PWR_LAG.forEach(id=>{
     if(map.getLayer(id)) map.setFilter(id, ['all', PWR_BASE_FILT[id], kindFilt]);
   });
