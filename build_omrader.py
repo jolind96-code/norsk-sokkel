@@ -16,6 +16,9 @@ import json
 import os
 import urllib.request
 
+from shapely.geometry import shape, mapping
+from shapely.ops import unary_union
+
 FYLKER_URL = ("https://raw.githubusercontent.com/robhop/"
               "fylker-og-kommuner/main/Fylker-S.geojson")
 RAW_CACHE = "_fylker_raw.geojson"
@@ -62,10 +65,29 @@ def run():
         })
     if manglet:
         print("Uten omrade-mapping:", manglet)
-    json.dump(ut, open("omrader.geojson", "w", encoding="utf-8"),
+
+    # Slar sammen (dissolver) alle fylke-polygoner som tilhorer samme
+    # prisomrade til EN geometri per omrade. Uten dette tegner omr-line-laget
+    # ogsa de interne fylke-mot-fylke-grensene (f.eks. mellom to NO1-fylker),
+    # ikke bare de 5 ytre prisomradekonturene brukeren faktisk vil se.
+    by_omr = {}
+    for f in ut["features"]:
+        g = shape(f["geometry"])
+        if not g.is_valid:
+            g = g.buffer(0)  # reparerer selvskjaerende ringer for union
+        by_omr.setdefault(f["properties"]["omr"], []).append(g)
+    dissolved = {"type": "FeatureCollection", "features": []}
+    for omr, geoms in sorted(by_omr.items()):
+        merged = unary_union(geoms)
+        dissolved["features"].append({
+            "type": "Feature",
+            "geometry": mapping(merged),
+            "properties": {"omr": omr},
+        })
+    json.dump(dissolved, open("omrader.geojson", "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
-    print(f"omrader.geojson: {len(ut['features'])} fylker i "
-          f"{len(set(x['properties']['omr'] for x in ut['features']))} prisomrader")
+    print(f"omrader.geojson: {len(dissolved['features'])} prisomrader "
+          f"(dissolvet fra {len(ut['features'])} fylkespolygoner)")
 
 if __name__ == "__main__":
     run()
