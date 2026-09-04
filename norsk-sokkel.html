@@ -438,27 +438,30 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
 
 <div id="app">
   <div id="hjelp" class="skjult"><div class="hb">
-    <h2>Norsk energiproduksjon, felt for felt</h2>
+    <h2>Norsk energiproduksjon</h2>
     <div class="lead">To likeverdige deler av norsk energiproduksjon, samme kart: <b>olje og gass</b> fra
       feltene på sokkelen (fra det første funnet i 1971) og <b>kraft fra vann og vind</b> på land.
       Alle tall kommer fra Sokkeldirektoratet og NVE.</div>
     <ol>
       <li><b>Boblene i kartet</b> er felt til havs og kraftanlegg på land. Jo større boble, jo mer produseres/leveres.</li>
-      <li><b>Trykk ▶</b> nederst for å spole gjennom årene og se produksjonen vokse fram.</li>
-      <li><b>Velg «Kumulativt»</b> for å se hvem som har produsert mest gjennom hele historien.</li>
+      <li><b>I Hav-modulen</b> kan du trykke <b>▶</b> for å spole gjennom årene, eller velge «Kumulativt» for historikken. Land-modulen viser dagens bestand av kraftanlegg (NVE har ikke år-for-år-historikk per anlegg).</li>
       <li><b>Klikk på et felt eller kraftanlegg</b> — i kartet, listen eller stolpediagrammet — for detaljer.</li>
     </ol>
     <div class="fakta">
       <div class="fk"><b>1 fat</b><span>159 liter olje. Det målet verden handler olje i.</span></div>
       <div class="fk"><b>o.e.</b><span>Oljeekvivalenter. Gass regnet om til «like mye energi som olje», så alt kan summeres.</span></div>
       <div class="fk"><b>Sm³</b><span>Standard kubikkmeter. Målet Norge bruker. 1 Sm³ = 6,29 fat.</span></div>
+      <div class="fk"><b>MW/GWh/TWh</b><span>Effekt (MW) og årsproduksjon for kraftanlegg. 1 TWh = 1000 GWh — brukes for store tall.</span></div>
     </div>
     <div class="metode">
-      <b>Slik regner vi ut inntektene.</b> Vi tar produsert mengde og ganger med
-      gjennomsnittlig markedspris det året: <b>Brent råolje</b> for olje og kondensat, og
+      <b>Slik regner vi ut inntektene.</b> For olje og gass: produsert mengde ganger
+      gjennomsnittlig markedspris det året — <b>Brent råolje</b> for olje og kondensat, og
       <b>europeisk gasspris</b> for gass. NGL prises sjablongmessig til halv oljepris.
       Summen regnes om til kroner med Norges Banks årskurs for dollar.
       Prisene er hentet fra Verdensbanken, EIA og Norges Bank.
+      <br>For kraft: installert effekt (MW) ganget med dagens time for time-spotpris i anleggets
+      prisområde, gir «verdi ved full produksjon» — et makstall, ikke en prognose, siden vann- og
+      vindkraft sjelden går for full effekt kontinuerlig.
       <br>Dette er <b>bruttoverdien av det som ble produsert</b> — ikke faktisk salgsinntekt,
       og ikke fortjeneste. Kostnader, skatt, langsiktige kontrakter og prissikring er ikke med.
     </div>
@@ -504,9 +507,9 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
       </ul>
     </div>
     <button id="hjelplukk">Kom i gang</button>
-    <div class="liten">Uavhengig prosjekt, ikke tilknyttet Sokkeldirektoratet.
-      Produksjons- og reservetall er hentet direkte fra Sokkeldirektoratets åpne data (NLOD).
-      Inntektsanslagene er våre egne og omtrentlige.</div>
+    <div class="liten">Uavhengig prosjekt, ikke tilknyttet Sokkeldirektoratet eller NVE.
+      Produksjonstall for olje/gass er hentet direkte fra Sokkeldirektoratets åpne data (NLOD),
+      kraftanleggsdata fra NVE. Inntektsanslagene er våre egne og omtrentlige.</div>
   </div></div>
   <header id="hdr">
     <h1>Norsk energiproduksjon</h1>
