@@ -91,6 +91,8 @@ header h1 em{font-style:normal;color:var(--acc)}
    "viser X av Y felt"-linjen gir ingen mening for kraftverk, så de skjules.
    Søkefeltet virker fortsatt (powFiltered() matcher navn/eier). */
 #side.land-mode .fieldfilters,#side.land-mode #active{display:none}
+.landfilters{display:none}
+#side.land-mode .landfilters{display:flex;flex-direction:column;gap:6px}
 #hdr.land-mode .hav-only-controls{display:none}
 #charts.land-mode #tsmode{display:none}
 #listtitle{font-size:10px;letter-spacing:.7px;text-transform:uppercase;color:var(--tx2);
@@ -451,6 +453,12 @@ table.res .h{color:var(--tx2);font-size:9px;letter-spacing:.6px;text-transform:u
           <div class="chips" id="chc"></div>
         </div>
       </div>
+      <div class="landfilters" id="landfilters">
+        <div class="fgroup">
+          <div class="flabel">Kraftkilde</div>
+          <div class="chips" id="ckilde"></div>
+        </div>
+      </div>
       <div id="active"></div>
     </div>
     <div class="row-between">
@@ -778,6 +786,7 @@ function buildChips(){
   group('cstatus','status','status',statN);
   group('carea','area','area',areaN);
   group('chc','hc','hcType',hcN);
+  buildKildeChips();
 
   const op=document.getElementById('cop');
   const oc={}; D.fields.forEach(f=>{if(f.operator)oc[f.operator]=(oc[f.operator]||0)+1;});
@@ -1252,6 +1261,7 @@ function powFiltered(){
   if(!POW) return [];
   const q=document.getElementById('search').value.trim().toLowerCase();
   return POW.verk.map((p,rank)=>({p,rank}))
+    .filter(({p})=>kildeOn[p.k])
     .filter(({p})=>!q||p.n.toLowerCase().includes(q)||(p.eier||'').toLowerCase().includes(q));
 }
 function drawList(){
@@ -2130,8 +2140,15 @@ function initHjelp(){
    bygger pa Nord Pools dagen-for-priser. Prisen er fersk hver gang du apner. */
 let POW=null, powOn=false, SPOT=null, ENGF=null;
 const POWC={vann:'#0ea5e9', vind:'#14b8a6'};
+/* Kraftkilde-valg i Land-modus. Vann/vind har ekte NVE-anlegg (filtrerer
+   punktlaget direkte). Sol/varme har INGEN geolokaliserte enkeltanlegg -
+   default av, og vises (nar pa) som et grovt anslag fordelt etter folketall
+   i tettsteder, tydelig merket som anslag, ikke faktiske anlegg. */
+let kildeOn={vann:true,vind:true,sol:false,varme:false};
+let CITIES=null;
 const OMRN={NO1:'Sørøst',NO2:'Sørvest',NO3:'Midt',NO4:'Nord',NO5:'Vest'};
 const PWR_LAG=['pwr','pwr-md','pwr-sm'];
+const PWR_BASE_FILT={};
 const FIELD_LAG=['poly-fill','poly-line','poly-line-gas','poly-line-both','poly-line-con','bub','fac','lbl'];
 function setFieldLayers(v){
   FIELD_LAG.forEach(l=>{ if(map.getLayer(l)) map.setLayoutProperty(l,'visibility',v); });
@@ -2151,6 +2168,7 @@ async function setPowerVisible(on){
     catch(e){ powOn=false; document.getElementById('spot').hidden=true; return; }
   }
   if(!map.getSource('pwr')) addPowerLayers();
+  updateKildeFilters();
   if(!SPOT) loadSpot();
   vis('visible');
 }
@@ -2206,14 +2224,19 @@ function addPowerLayers(){
   map.addSource('pwr',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
 
   /* Tre nivaer sa kartet ikke drukner i prikker. Sma kraftverk dukker forst
-     opp nar du zoomer inn - det er over tusen av dem. */
-  const sirkel=(id,filter,minzoom)=>map.addLayer({id,type:'circle',source:'pwr',
-    filter, ...(minzoom?{minzoom}:{}),
-    paint:{'circle-radius':['interpolate',['linear'],['zoom'],
-             3,['*',['get','r'],0.45], 6,['*',['get','r'],0.85], 10,['*',['get','r'],1.7]],
-           'circle-color':['get','color'],'circle-opacity':0.30,
-           'circle-stroke-color':['get','color'],'circle-stroke-width':1.2,
-           'circle-stroke-opacity':0.8}},'lbl');
+     opp nar du zoomer inn - det er over tusen av dem. Grunnfilteret (storrelse)
+     lagres sa updateKildeFilters() kan legge pa/fjerne vann/vind uten a miste
+     det. */
+  const sirkel=(id,filter,minzoom)=>{
+    PWR_BASE_FILT[id]=filter;
+    map.addLayer({id,type:'circle',source:'pwr',
+      filter, ...(minzoom?{minzoom}:{}),
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],
+               3,['*',['get','r'],0.45], 6,['*',['get','r'],0.85], 10,['*',['get','r'],1.7]],
+             'circle-color':['get','color'],'circle-opacity':0.30,
+             'circle-stroke-color':['get','color'],'circle-stroke-width':1.2,
+             'circle-stroke-opacity':0.8}},'lbl');
+  };
   sirkel('pwr',   ['>=',['get','mw'],100]);                 // store: alltid synlig
   sirkel('pwr-md',['all',['>=',['get','mw'],20],['<',['get','mw'],100]], 5.4);
   sirkel('pwr-sm',['<',['get','mw'],20], 7.4);              // smakraftverk: langt inn
@@ -2245,6 +2268,98 @@ function addPowerLayers(){
     });
     map.on('mouseleave',L,()=>{map.getCanvas().style.cursor='';pop.remove();});
   });
+}
+
+/* ---------- kraftkilde-filter (Vann/Vind/Sol/Varme) ---------- */
+/* Vann/vind: reelt filter pa punktlaget (POW.verk har begge). Sol/varme:
+   ingen enkeltanlegg finnes - i stedet et EGET, tydelig markert anslagslag
+   (pwr-est), bygget forst gang en av de to sla pa. */
+function updateKildeFilters(){
+  if(!map.getSource('pwr')) return;
+  const inc=['vann','vind'].filter(k=>kildeOn[k]);
+  const kindFilt=['in',['get','k'],['literal', inc.length?inc:['__ingen__']]];
+  PWR_LAG.forEach(id=>{
+    if(map.getLayer(id)) map.setFilter(id, ['all', PWR_BASE_FILT[id], kindFilt]);
+  });
+  if(map.getLayer('pwr-lbl'))
+    map.setFilter('pwr-lbl', ['all', ['>=',['get','mw'],20], kindFilt]);
+
+  const estOn = kildeOn.sol || kildeOn.varme;
+  const applyEst=()=>{
+    if(!map.getLayer('pwr-est')) return;
+    const incEst=['sol','varme'].filter(k=>kildeOn[k]);
+    map.setLayoutProperty('pwr-est','visibility', incEst.length?'visible':'none');
+    if(incEst.length) map.setFilter('pwr-est',
+      ['in',['get','k'],['literal',incEst]]);
+  };
+  if(estOn && !map.getLayer('pwr-est')){ ensureEstLayer().then(applyEst); }
+  else applyEst();
+}
+
+let estBuilding=null;
+function ensureEstLayer(){
+  if(map.getSource('pwr-est') || estBuilding) return estBuilding;
+  estBuilding = Promise.all([
+    CITIES ? Promise.resolve(CITIES) : fetch('cities.json').then(r=>r.json()).then(cj=>CITIES=cj),
+    ENGF ? Promise.resolve(ENGF) : new Promise(res=>{
+      const iv=setInterval(()=>{ if(ENGF){ clearInterval(iv); res(ENGF); } },200);
+      setTimeout(()=>{clearInterval(iv); res(ENGF);},4000);   // ikke henge evig
+    })
+  ]).then(([cities])=>{
+    if(map.getSource('pwr-est')) return;                      // race guard
+    if(!cities||!ENGF) return;
+    const totalPop=cities.cities.reduce((a,c)=>a+c.p,0);
+    const last=ENGF.ar.length-1;
+    const feats=[];
+    ['sol','varme'].forEach(k=>{
+      const total=ENGF[k][last]||0;
+      cities.cities.forEach(c=>{
+        const gwh=total*(c.p/totalPop);
+        if(gwh<=0) return;
+        feats.push({type:'Feature',geometry:{type:'Point',coordinates:c.c},
+          properties:{n:c.n,k,gwh:+gwh.toFixed(1),
+            r:Math.max(2,Math.sqrt(gwh)*0.55)}});
+      });
+    });
+    map.addSource('pwr-est',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+    map.addLayer({id:'pwr-est',type:'circle',source:'pwr-est',
+      layout:{visibility:'none'},
+      paint:{'circle-radius':['interpolate',['linear'],['zoom'],
+               3,['*',['get','r'],0.45], 6,['*',['get','r'],0.85], 10,['*',['get','r'],1.7]],
+             'circle-color':['match',['get','k'],'sol',ENGFC.sol,'varme',ENGFC.varme,'#94a3b8'],
+             'circle-opacity':0.22,
+             'circle-stroke-color':['match',['get','k'],'sol',ENGFC.sol,'varme',ENGFC.varme,'#94a3b8'],
+             'circle-stroke-width':1,'circle-stroke-opacity':0.55}},'lbl');
+    const pop=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:10});
+    map.on('mousemove','pwr-est',e=>{
+      const p=e.features[0].properties;
+      map.getCanvas().style.cursor='pointer';
+      pop.setLngLat(e.lngLat).setHTML(
+        `<b>${p.n} <span style="font-weight:400;color:#94a3b8">(anslag)</span></b><br>
+         <span style="color:#64748b">${p.k==='sol'?'Solkraft':'Varmekraft'} · ~${fmt(p.gwh,p.gwh<10?1:0)} GWh/år</span>
+         <br><span style="color:#94a3b8;font-size:11px">Ikke et faktisk anlegg - nasjonalt tall (SSB) fordelt etter folketall, siden ${p.k==='sol'?'sol':'varme'}kraft mangler geolokaliserte data per anlegg.</span>`
+      ).addTo(map);
+    });
+    map.on('mouseleave','pwr-est',()=>{map.getCanvas().style.cursor='';pop.remove();});
+  });
+  return estBuilding;
+}
+
+function buildKildeChips(){
+  const el=document.getElementById('ckilde');
+  if(!el) return;
+  const defs=[['vann','Vannkraft'],['vind','Vindkraft'],['sol','Solkraft (anslag)'],['varme','Varmekraft (anslag)']];
+  el.innerHTML=defs.map(([k,l])=>
+    `<button class="chip ${kildeOn[k]?'on':''}" data-k="${k}">
+       <span class="dot" style="background:${ENGFC[k]}"></span>${l}</button>`).join('');
+  el.onclick=e=>{
+    const b=e.target.closest('.chip'); if(!b) return;
+    const k=b.dataset.k;
+    kildeOn[k]=!kildeOn[k];
+    b.classList.toggle('on',kildeOn[k]);
+    updateKildeFilters();
+    drawList();drawKpis();
+  };
 }
 
 /* ---------- prisomrade-grenser (NO1-NO5), eget valgfritt lag ---------- */
